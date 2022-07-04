@@ -1,0 +1,6 @@
+/.idea/
+/cmake-build-debug-mingw-stm32/
+/.cproject
+/.mxproject
+/.project
+/cmake-build-debug-mingw_arm_gcc/
