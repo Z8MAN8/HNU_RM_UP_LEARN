@@ -44,8 +44,8 @@ int16_t pit_moto_current;
 
 bool_t recv_flag=false;   //虚拟串口接收标志位
 /*切换手动和自动模式相应PID参数的标志位*/
-static _Bool auto_pid_flag = 1;
-static _Bool manual_pid_flag = 0;
+static _Bool auto_pid_flag = 0;
+static _Bool manual_pid_flag = 1;
 
 /*切换归中和正常模式相应PID参数的标志位*/
 static _Bool back_pid_flag = 0;
@@ -70,7 +70,6 @@ void gimbal_task(void const * argument)
     Gimbal_Init_param();
     /*获取PreviousWakeTime*/
     uint32_t Gimbal_Wake_time = osKernelSysTick();
-    gim.ctrl_mode=GIMBAL_RELAX;
 
     while (1)
     {
@@ -145,10 +144,10 @@ void Gimbal_Get_mode(void)
    {/*如果有模块离线或右侧拨杆值在DN时，则云台为GIMBAL_RELAX模式*/
        gim.ctrl_mode = GIMBAL_RELAX;
    }
+   else if(gim.ctrl_mode != GIMBAL_AUTO&&gim.ctrl_mode != GIMBAL_CLOSE_LOOP_ZGYRO){
 
-   else{
-           gim.ctrl_mode = GIMBAL_INIT;
-           if(gimbal_back_step == BACK_IS_OK&&back_reset_flag==1)
+           gim.ctrl_mode = GIMBAL_INIT;}
+           /*if(gimbal_back_step == BACK_IS_OK&&back_reset_flag==1)
            {
                if(rc.sw2 == RC_MI)
                {
@@ -164,9 +163,10 @@ void Gimbal_Get_mode(void)
                {
                    gim.ctrl_mode = GIMBAL_AUTO;
                }
-       }
-       gim.last_mode = gim.ctrl_mode;
-   }
+       }*/
+
+
+    gim.last_mode = gim.ctrl_mode;
 
    /*else{     *//*无模块离线，进行下一步判断*//*
        if(gim.last_mode == GIMBAL_RELAX && rc.sw2 != RC_DN||gimbal_back_step!=BACK_IS_OK)
@@ -288,22 +288,48 @@ void Gimbal_Init_handle(void)
                 gim.ctrl_mode = GIMBAL_CLOSE_LOOP_ZGYRO;
             else if(rc.sw2 == RC_UP)
                 gim.ctrl_mode = GIMBAL_AUTO;*/
+
+
+                if(rc.sw2 == RC_MI)
+                {
+                    gim.ctrl_mode = GIMBAL_CLOSE_LOOP_ZGYRO;
+
+                    /*while (rc.mouse.r)
+                    {
+                        gim.ctrl_mode = GIMBAL_AUTO;
+                    }*/
+                }
+
+                else if (rc.sw2 == RC_UP)
+                {
+                    gim.ctrl_mode = GIMBAL_AUTO;
+                }
+
+            gim.yaw_offset_angle = imu.angle_x;
+            gim.pit_offset_angle = imu.angle_y;
+            pit_angle_ref = 0;
+            yaw_angle_ref = 0;
+            YawMotor.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_M;
+            YawMotor.FFC_Velocity.MaxOut=YAW_V_FFC_MAXOUT;
+            PitMotor.PID_Velocity.MaxOut=PITCH_V_PID_MAXOUT_M;
+
+
 //            TODO:考虑优化标志位，方便代码维护
-            if(normal_pid_flag == 0){
-                PID_Reset_manual();
-
-                gim.yaw_offset_angle = imu.angle_x;
-                gim.pit_offset_angle = imu.angle_y;
-                pit_angle_ref = 0;
-                yaw_angle_ref = 0;
-
-                /*YawMotor.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_M;
-                YawMotor.FFC_Velocity.MaxOut=YAW_V_FFC_MAXOUT;
-                PitMotor.PID_Velocity.MaxOut=PITCH_V_PID_MAXOUT_M;*/
-                normal_pid_flag = 1;
-                back_pid_flag = 0;
-                back_reset_flag=1;
-            }
+//            if(normal_pid_flag == 0){
+//                PID_Reset_manual();
+//
+//                gim.yaw_offset_angle = imu.angle_x;
+//                gim.pit_offset_angle = imu.angle_y;
+//                pit_angle_ref = 0;
+//                yaw_angle_ref = 0;
+//
+//                /*YawMotor.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_M;
+//                YawMotor.FFC_Velocity.MaxOut=YAW_V_FFC_MAXOUT;
+//                PitMotor.PID_Velocity.MaxOut=PITCH_V_PID_MAXOUT_M;*/
+//                normal_pid_flag = 1;
+//                back_pid_flag = 0;
+//                back_reset_flag=1;
+//            }
 
             /*初始化完毕后，将限制云台归中的相关参数恢复正常*/
 
@@ -311,6 +337,8 @@ void Gimbal_Init_handle(void)
 //            YawMotor.PID_Angle.Ki=0.5;
             //pid_pit_speed.max_output = 8000;
         }break;
+        default:break;
+
     }
 //    Gimbal_Control_moto();
 }
@@ -441,13 +469,13 @@ void Gimbal_Control_moto(void)
 void Gimbal_Relax_handle(void)
 {
     static uint8_t data[8];
-
-    if(back_pid_flag == 0){
+    Gimbal_Back_param();
+    /*if(back_pid_flag == 0){
         Gimbal_Back_param();
         back_pid_flag = 1;
         normal_pid_flag = 0;
     }
-    back_reset_flag=0;
+    back_reset_flag=0;*/
 
     data[0] = 0;
     data[1] = 0;
