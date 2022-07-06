@@ -16,7 +16,8 @@
 static CAN_TxHeaderTypeDef  tx_message;
 static uint8_t              can_send_data[8];
 extern Motor_t ChassisMotor[4];
-extern chassis_mode_e chassis_mode;
+//TODO
+//extern chassis_mode_e chassis_mode;
 
 #ifdef TEST_ON_ICRA
 typedef enum

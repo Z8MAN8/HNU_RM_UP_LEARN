@@ -13,13 +13,13 @@
 #include "bsp_PWM.h"
 #include "bsp_imu.h"
 
-INS_t INS;
-INS_Tx_t INS_Tx;
-IMU_Param_t IMU_Param;
-QuaternionBuf_t QuaternionBuffer;
-PID_t TempCtrl = {0};
-static uint8_t INS_Tx_Buffer[100];
-uint8_t INS_Tx_Size;
+InsTypeDef ins;
+InsTxTypeDef ins_tx;
+ImuParamTypeDef IMU_param;
+QuaternionBufTypeDef Quaternion_buffer;
+PIDTypeDef TempCtrl = {0};
+static uint8_t ins_tx_buffer[100];
+uint8_t ins_tx_size;
 const float xb[3] = {1, 0, 0};
 const float yb[3] = {0, 1, 0};
 const float zb[3] = {0, 0, 1};
@@ -30,26 +30,26 @@ uint8_t ins_debug_mode = 0;
 float RefTemp = 40;
 float Testdata[6]={0};
 char Vofatail[4] = {0x00, 0x00, 0x80, 0x7f};
-extern imu_t        imu;
-static void IMU_Param_Correction(IMU_Param_t *param, float gyro[3], float accel[3]);
+extern ImuTypeDef       imu;
+static void IMU_Param_Correction(ImuParamTypeDef *param, float gyro[3], float accel[3]);
 
 void ins_task(void const * argument)
 {
     /* USER CODE BEGIN InsTask */
     BMI088_Read(&BMI088);
 
-    if (fabsf(sqrtf(BMI088.Accel[0] * BMI088.Accel[0] +
-                    BMI088.Accel[1] * BMI088.Accel[1] +
-                    BMI088.Accel[2] * BMI088.Accel[2]) -
-              BMI088.gNorm) < 1)
-        Quaternion_AHRS_InitIMU(BMI088.Accel[0], BMI088.Accel[1], BMI088.Accel[2], BMI088.gNorm);
-    IMU_Param.scale[0] = 1;
-    IMU_Param.scale[1] = 1;
-    IMU_Param.scale[2] = 1;
-    IMU_Param.Yaw = 0;
-    IMU_Param.Pitch = 0;
-    IMU_Param.Roll = 0;
-    IMU_Param.flag = 1;
+    if (fabsf(sqrtf(BMI088.accel[0] * BMI088.accel[0] +
+                    BMI088.accel[1] * BMI088.accel[1] +
+                    BMI088.accel[2] * BMI088.accel[2]) -
+              BMI088.g_norm) < 1)
+        Quaternion_AHRS_InitIMU(BMI088.accel[0], BMI088.accel[1], BMI088.accel[2], BMI088.g_norm);
+    IMU_param.scale[0] = 1;
+    IMU_param.scale[1] = 1;
+    IMU_param.scale[2] = 1;
+    IMU_param.yaw = 0;
+    IMU_param.pitch = 0;
+    IMU_param.roll = 0;
+    IMU_param.flag = 1;
 
     IMU_QuaternionEKF_Init(10, 0.001, 1000000 * 10, 0.9996 * 0 + 1, 0);
     // imu heat init
@@ -68,53 +68,53 @@ void ins_task(void const * argument)
         if ((count % 1) == 0)
         {
             BMI088_Read(&BMI088);
-            INS.Accel[0] = BMI088.Accel[0];
-            INS.Accel[1] = BMI088.Accel[1];
-            INS.Accel[2] = BMI088.Accel[2];
-            INS.Gyro[0] = BMI088.Gyro[0];
-            INS.Gyro[1] = BMI088.Gyro[1];
-            INS.Gyro[2] = BMI088.Gyro[2];
-            IMU_Param_Correction(&IMU_Param, INS.Gyro, INS.Accel);
-            INS.atanxz = -atan2f(INS.Accel[0], INS.Accel[2]) * 180 / PI;
-            INS.atanyz = atan2f(INS.Accel[1], INS.Accel[2]) * 180 / PI;
+            ins.accel[0] = BMI088.accel[0];
+            ins.accel[1] = BMI088.accel[1];
+            ins.accel[2] = BMI088.accel[2];
+            ins.gyro[0] = BMI088.gyro[0];
+            ins.gyro[1] = BMI088.gyro[1];
+            ins.gyro[2] = BMI088.gyro[2];
+            IMU_Param_Correction(&IMU_param, ins.gyro, ins.accel);
+            ins.atanxz = -atan2f(ins.accel[0], ins.accel[2]) * 180 / PI;
+            ins.atanyz = atan2f(ins.accel[1], ins.accel[2]) * 180 / PI;
 
-            Quaternion_AHRS_UpdateIMU(INS.Gyro[0], INS.Gyro[1], INS.Gyro[2], INS.Accel[0], INS.Accel[1], INS.Accel[2], 0, 0, 0, dt);
-            IMU_QuaternionEKF_Update(INS.Gyro[0], INS.Gyro[1], INS.Gyro[2], INS.Accel[0], INS.Accel[1], INS.Accel[2], dt);
+            Quaternion_AHRS_UpdateIMU(ins.gyro[0], ins.gyro[1], ins.gyro[2], ins.accel[0], ins.accel[1], ins.accel[2], 0, 0, 0, dt);
+            IMU_QuaternionEKF_Update(ins.gyro[0], ins.gyro[1], ins.gyro[2], ins.accel[0], ins.accel[1], ins.accel[2], dt);
 
             // BodyFrameToEarthFrame(xb, INS.xn, INS.q);
             // BodyFrameToEarthFrame(yb, INS.yn, INS.q);
             // BodyFrameToEarthFrame(zb, INS.zn, INS.q);
 
-            memcpy(INS.Gyro, QEKF_INS.Gyro, sizeof(QEKF_INS.Gyro));
-            memcpy(INS.Accel, QEKF_INS.Accel, sizeof(QEKF_INS.Accel));
-            memcpy(INS.q, QEKF_INS.q, sizeof(QEKF_INS.q));
-            INS.Yaw = QEKF_INS.Yaw;
-            INS.Pitch = QEKF_INS.Pitch;
-            INS.Roll = QEKF_INS.Roll;
-            INS.YawTotalAngle = QEKF_INS.YawTotalAngle;
+            memcpy(ins.gyro, QEKF_INS.Gyro, sizeof(QEKF_INS.Gyro));
+            memcpy(ins.accel, QEKF_INS.Accel, sizeof(QEKF_INS.Accel));
+            memcpy(ins.q, QEKF_INS.q, sizeof(QEKF_INS.q));
+            ins.yaw = QEKF_INS.Yaw;
+            ins.pitch = QEKF_INS.Pitch;
+            ins.roll = QEKF_INS.Roll;
+            ins.yaw_total_angle = QEKF_INS.YawTotalAngle;
 
-            memcpy(INS_Tx.Gyro, INS.Gyro, sizeof(INS.Gyro));
-            memcpy(INS_Tx.Accel, INS.Accel, sizeof(INS.Accel));
-            memcpy(INS_Tx.q, INS.q, sizeof(INS.q));
+            memcpy(ins_tx.Gyro, ins.gyro, sizeof(ins.gyro));
+            memcpy(ins_tx.Accel, ins.accel, sizeof(ins.accel));
+            memcpy(ins_tx.q, ins.q, sizeof(ins.q));
 
-            memcpy(INS_Tx_Buffer, &INS_Tx, sizeof(INS_Tx));
-            INS_Tx_Size = sizeof(INS_Tx);
-            imu.acc_x = INS.Accel[0];
-            imu.acc_y = INS.Accel[1];
-            imu.acc_z = INS.Accel[2];
-            imu.angle_x = INS.YawTotalAngle;
-            imu.angle_y = INS.Roll;
-            imu.angle_z = INS.Pitch;
-            imu.gyro_x = INS.Gyro[0];
-            imu.gyro_y = INS.Gyro[1];
-            imu.gyro_z = INS.Gyro[2];
+            memcpy(ins_tx_buffer, &ins_tx, sizeof(ins_tx));
+            ins_tx_size = sizeof(ins_tx);
+            imu.acc_x = ins.accel[0];
+            imu.acc_y = ins.accel[1];
+            imu.acc_z = ins.accel[2];
+            imu.angle_x = ins.yaw_total_angle;
+            imu.angle_y = ins.roll;
+            imu.angle_z = ins.pitch;
+            imu.gyro_x = ins.gyro[0];
+            imu.gyro_y = ins.gyro[1];
+            imu.gyro_z = ins.gyro[2];
 
-//            HAL_UART_Transmit(&huart6, INS_Tx_Buffer, sizeof(INS_Tx), 100);
+//            HAL_UART_Transmit(&huart6, ins_tx_buffer, sizeof(ins_tx), 100);
 
 //        if (GlobalDebugMode == INS_DEBUG)
 //        {
 //            if (ins_debug_mode == 0)
-//                Serial_Debug(&huart1, 1, AHRS.Yaw, AHRS.Pitch, AHRS.Roll, INS.Yaw, INS.Pitch, INS.Roll);
+//                Serial_Debug(&huart1, 1, AHRS.yaw, AHRS.pitch, AHRS.roll, INS.yaw, INS.pitch, INS.roll);
 //
 //        }
         }
@@ -127,7 +127,7 @@ void ins_task(void const * argument)
 //            HAL_UART_Transmit(&huart1,(uint8_t *)&Testdata,sizeof(Testdata),0xFFFFFFFFU);
 //            HAL_UART_Transmit(&huart1, (uint8_t *)&Vofatail, sizeof(Vofatail),0xFFFFFFFFU);
 //            if (GlobalDebugMode == IMU_HEAT_DEBUG)
-//                Serial_Debug(&huart1, 1, RefTemp, BMI088.Temperature, TempCtrl.Output / 1000.0f, TempCtrl.Pout / 1000.0f, TempCtrl.Iout / 1000.0f, TempCtrl.Dout / 1000.0f);
+//                Serial_Debug(&huart1, 1, RefTemp, BMI088.temperature, TempCtrl.Output / 1000.0f, TempCtrl.Pout / 1000.0f, TempCtrl.Iout / 1000.0f, TempCtrl.Dout / 1000.0f);
 //
         }
 
@@ -192,7 +192,7 @@ void EularAngleToQuaternion(float Yaw, float Pitch, float Roll, float *q)
     q[3] = cosPitch * cosRoll * sinYaw - sinPitch * sinRoll * cosYaw;
 }
 
-void InsertQuaternionFrame(QuaternionBuf_t *qBuf, float *q, float time_stamp)
+void InsertQuaternionFrame(QuaternionBufTypeDef *qBuf, float *q, float time_stamp)
 {
     if (qBuf->LatestNum == Q_FRAME_LEN - 1)
         qBuf->LatestNum = 0;
@@ -204,7 +204,7 @@ void InsertQuaternionFrame(QuaternionBuf_t *qBuf, float *q, float time_stamp)
         qBuf->qFrame[qBuf->LatestNum].q[i] = q[i];
 }
 
-uint16_t FindTimeMatchFrame(QuaternionBuf_t *qBuf, float match_time_stamp)
+uint16_t FindTimeMatchFrame(QuaternionBufTypeDef *qBuf, float match_time_stamp)
 {
     float min_time_error = fabsf(qBuf->qFrame[0].TimeStamp - match_time_stamp);
     uint16_t num = 0;
@@ -261,22 +261,22 @@ void EarthFrameToBodyFrame(const float *vecEF, float *vecBF, float *q)
                        (0.5f - q[1] * q[1] - q[2] * q[2]) * vecEF[2]);
 }
 
-static void IMU_Param_Correction(IMU_Param_t *param, float gyro[3], float accel[3])
+static void IMU_Param_Correction(ImuParamTypeDef *param, float gyro[3], float accel[3])
 {
     static float lastYawOffset, lastPitchOffset, lastRollOffset;
     static float c_11, c_12, c_13, c_21, c_22, c_23, c_31, c_32, c_33;
     float cosPitch, cosYaw, cosRoll, sinPitch, sinYaw, sinRoll;
 
-    if (fabsf(param->Yaw - lastYawOffset) > 0.001f ||
-        fabsf(param->Pitch - lastPitchOffset) > 0.001f ||
-        fabsf(param->Roll - lastRollOffset) > 0.001f || param->flag)
+    if (fabsf(param->yaw - lastYawOffset) > 0.001f ||
+        fabsf(param->pitch - lastPitchOffset) > 0.001f ||
+        fabsf(param->roll - lastRollOffset) > 0.001f || param->flag)
     {
-        cosYaw = arm_cos_f32(param->Yaw / 57.295779513f);
-        cosPitch = arm_cos_f32(param->Pitch / 57.295779513f);
-        cosRoll = arm_cos_f32(param->Roll / 57.295779513f);
-        sinYaw = arm_sin_f32(param->Yaw / 57.295779513f);
-        sinPitch = arm_sin_f32(param->Pitch / 57.295779513f);
-        sinRoll = arm_sin_f32(param->Roll / 57.295779513f);
+        cosYaw = arm_cos_f32(param->yaw / 57.295779513f);
+        cosPitch = arm_cos_f32(param->pitch / 57.295779513f);
+        cosRoll = arm_cos_f32(param->roll / 57.295779513f);
+        sinYaw = arm_sin_f32(param->yaw / 57.295779513f);
+        sinPitch = arm_sin_f32(param->pitch / 57.295779513f);
+        sinRoll = arm_sin_f32(param->roll / 57.295779513f);
 
         // 1.yaw(alpha) 2.pitch(beta) 3.roll(gamma)
         c_11 = cosYaw * cosRoll + sinYaw * sinPitch * sinRoll;
@@ -318,14 +318,14 @@ static void IMU_Param_Correction(IMU_Param_t *param, float gyro[3], float accel[
                c_32 * accel_temp[1] +
                c_33 * accel_temp[2];
 
-    lastYawOffset = param->Yaw;
-    lastPitchOffset = param->Pitch;
-    lastRollOffset = param->Roll;
+    lastYawOffset = param->yaw;
+    lastPitchOffset = param->pitch;
+    lastRollOffset = param->roll;
 }
 
 void IMU_Temperature_Ctrl(void)
 {
-    PID_Calculate(&TempCtrl, BMI088.Temperature, float_constrain(BMI088.TempWhenCali, 37, 42));
+    PID_Calculate(&TempCtrl, BMI088.temperature, float_constrain(BMI088.temp_when_cali, 37, 42));
 
     TIM_Set_PWM(&htim10, TIM_CHANNEL_1, float_constrain(float_rounding(TempCtrl.Output), 0, UINT32_MAX));
 }

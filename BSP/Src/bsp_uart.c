@@ -14,13 +14,13 @@
 #include <usart.h>
 #include "Detect.h"
 char usart6_rxbuf[10];
-extern recv_frame data_recv;
+extern RecvFrameTypeDef auto_rx_data;
 extern UART_HandleTypeDef huart3;
 extern DMA_HandleTypeDef hdma_usart3_rx;
 extern global_cali_t glb_cali_data;
 extern GimbalYawTypeDef gim;
 extern float yaw_angle_ref,pit_angle_ref;
-extern uint8_t send_flag;
+//extern uint8_t send_flag;
 char print_buf[50];
 
 //ext_power_heat_data_t heat_data;

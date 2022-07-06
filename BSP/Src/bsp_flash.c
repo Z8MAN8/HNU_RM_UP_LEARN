@@ -302,5 +302,5 @@ void write_flash(uint8_t *write_data, uint32_t len){
   * @param     len: 读取数据的长度
   */
 void read_flash(uint8_t *read_data, uint32_t len){
-    flash_read(USER_FLASH_ADDRESS,(uint32_t)read_data,len);
+    flash_read(USER_FLASH_ADDRESS,(uint32_t*)read_data,len);
 }

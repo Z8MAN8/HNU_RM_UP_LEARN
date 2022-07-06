@@ -22,7 +22,9 @@
 #include "usbd_cdc_if.h"
 
 /* USER CODE BEGIN INCLUDE */
-
+#include "Transmission.h"
+#include "math.h"
+#include "Gimbal.h"
 /* USER CODE END INCLUDE */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -62,6 +64,7 @@
   */
 
 /* USER CODE BEGIN PRIVATE_DEFINES */
+
 /* USER CODE END PRIVATE_DEFINES */
 
 /**
@@ -263,6 +266,18 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
   /* USER CODE BEGIN 6 */
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+
+    if(*(uint16_t*)Buf=0xaaaa)
+    {
+        memcpy(&auto_rx_data,Buf,sizeof(auto_rx_data));
+        recv_flag=1;
+        if(isnanf(auto_rx_data.pitchAngleSet)|| isnanf(auto_rx_data.yawAngleSet))
+        {
+            memset(&auto_rx_data, 0, sizeof(auto_rx_data));
+            recv_flag=0;
+        }
+    }
+
   return (USBD_OK);
   /* USER CODE END 6 */
 }

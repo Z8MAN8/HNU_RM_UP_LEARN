@@ -71,9 +71,9 @@ typedef struct motor_t
     float Output;
     float Max_Out;
 
-    PID_t PID_Torque;
-    PID_t PID_Velocity;
-    PID_t PID_Angle;
+    PIDTypeDef PID_Torque;
+    PIDTypeDef PID_Velocity;
+    PIDTypeDef PID_Angle;
 
     Feedforward_t FFC_Torque;
     Feedforward_t FFC_Velocity;

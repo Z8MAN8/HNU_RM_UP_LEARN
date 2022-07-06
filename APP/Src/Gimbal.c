@@ -11,18 +11,18 @@
 #include "Detect.h"
 #include "ramp.h"
 
-
 #include "keyboard.h"
+
+
+ImuTypeDef imu;    //储存IMU传感器相关的数据
+GimbalBackType gimbal_back_step;
+GimbalYawTypeDef gim;
 
 /*云台归中值*/
 int32_t   pit_center_offset = 3616;
 int32_t   yaw_center_offset = 4600;
 
-/*储存IMU传感器相关的数据*/
-ImuTypeDef imu;
-
-GimbalBackType gimbal_back_step;
-
+/*储存鼠标坐标数据*/
 First_Order_Filter_t mouse_y_lpf,mouse_x_lpf;
 
 /* 云台相对角度,unit: degree*/
@@ -33,13 +33,32 @@ volatile float  yaw_relative_angle;
 float yaw_angle_fdb = 0;
 float pit_angle_fdb = 0;
 float c[3] = {0};
+
 /* 云台电机期望角度(degree) */
 float yaw_angle_ref;
 float pit_angle_ref;
 
+/* 云台电机电流 */
+int16_t yaw_moto_current;
+int16_t pit_moto_current;
+
 bool_t recv_flag=false;   //虚拟串口接收标志位
+/*切换手动和自动模式相应PID参数的标志位*/
 static _Bool auto_pid_flag = 1;
 static _Bool manual_pid_flag = 0;
+
+/*切换归中和正常模式相应PID参数的标志位*/
+static _Bool back_pid_flag = 0;
+static _Bool normal_pid_flag = 1;
+static _Bool back_reset_flag = 0; //O代表云台未归中，1代表云台已归中且PID参数重置为正常
+
+/*云台初始化标志位，1代表初始完毕，0代表未初始化*/
+bool_t gimbal_init_flag = 0;
+
+//存放25帧历史姿态数据
+float angle_history[50];
+
+void back(void);
 
 
 
@@ -51,6 +70,7 @@ void gimbal_task(void const * argument)
     Gimbal_Init_param();
     /*获取PreviousWakeTime*/
     uint32_t Gimbal_Wake_time = osKernelSysTick();
+    gim.ctrl_mode=GIMBAL_RELAX;
 
     while (1)
     {
@@ -74,22 +94,24 @@ void gimbal_task(void const * argument)
                 Gimbal_Auto_control();
             }break;
 
-            default:
+            case (GIMBAL_RELAX):
             {
+                /*限制云台初始化归中时的相关参数*/
+//                Gimbal_Back_param();
+
                 Gimbal_Relax_handle();
+
             }break;
 
         }
-
-
+        if(gim.ctrl_mode!=GIMBAL_RELAX){
+        Gimbal_Control_moto();}
 
 
 
         /*绝对延时，保证Gimbal_TASK固定周期运行*/
         osDelayUntil(&Gimbal_Wake_time, GIMBAL_PERIOD);
     }
-
-
 
 }
 
@@ -101,7 +123,7 @@ void Gimbal_Get_information(void)
 
     /*获取云台相对角度*/
     yaw_relative_angle = Gimbal_Get_relative_pos(YawMotor.RawAngle, yaw_center_offset)/22.75f;
-    pit_relative_angle = Gimbal_Get_relative_pos(YawMotor.RawAngle, yaw_center_offset)/22.75f;
+    pit_relative_angle = Gimbal_Get_relative_pos(PitMotor.RawAngle, pit_center_offset)/22.75f;
 
     /*处理PC端键鼠控制*/
     PC_Handle_kb();
@@ -118,20 +140,43 @@ void Gimbal_Get_mode(void)
     gim.last_mode = gim.ctrl_mode;*/
    if(   glb_err.err_list[REMOTE_CTRL_OFFLINE].err_exist //遥控器离线
       || glb_err.err_list[GIMBAL_YAW_OFFLINE].err_exist  //yaw轴电机离线
-      || glb_err.err_list[GIMBAL_PIT_OFFLINE].err_exist) //pitch轴电机离线
-   {/*如果有模块离线，则云台为GIMBAL_RELAX模式*/
+      || glb_err.err_list[GIMBAL_PIT_OFFLINE].err_exist//pitch轴电机离线
+      || rc.sw2 ==RC_DN)
+   {/*如果有模块离线或右侧拨杆值在DN时，则云台为GIMBAL_RELAX模式*/
        gim.ctrl_mode = GIMBAL_RELAX;
+   }
+
+   else{
+           gim.ctrl_mode = GIMBAL_INIT;
+           if(gimbal_back_step == BACK_IS_OK&&back_reset_flag==1)
+           {
+               if(rc.sw2 == RC_MI)
+               {
+                   gim.ctrl_mode = GIMBAL_CLOSE_LOOP_ZGYRO;
+
+                   while (rc.mouse.r)
+                   {
+                       gim.ctrl_mode = GIMBAL_AUTO;
+                   }
+               }
+
+               else if (rc.sw2 == RC_UP)
+               {
+                   gim.ctrl_mode = GIMBAL_AUTO;
+               }
+       }
        gim.last_mode = gim.ctrl_mode;
    }
 
-   else{     /*无模块离线，进行下一步判断*/
-       if(gim.last_mode == GIMBAL_RELAX)
-       {   /*如果云台之前是RELAX状态，就进入GIMBAL_INIT*/
+   /*else{     *//*无模块离线，进行下一步判断*//*
+       if(gim.last_mode == GIMBAL_RELAX && rc.sw2 != RC_DN||gimbal_back_step!=BACK_IS_OK)
+       {   *//*如果云台之前是RELAX状态，就进入GIMBAL_INIT*//*
            gim.ctrl_mode = GIMBAL_INIT;
            gim.last_mode = gim.ctrl_mode;
+
        }
 
-       else{   /*无模块离线，且初始化完毕，进行下一步判断*/
+       else{   *//*无模块离线，且初始化完毕，进行下一步判断*//*
            switch (rc.sw2)
            {
                case (RC_MI):    //想要进入GIMBAL_CLOSE_LOOP_ZGYRO模式
@@ -148,18 +193,20 @@ void Gimbal_Get_mode(void)
                {
                    gim.ctrl_mode = GIMBAL_RELAX;
                }break;
-           }    /*完成遥控器拨杆的初步模式判断*/
+           }    *//*完成遥控器拨杆的初步模式判断*//*
 
-           gim.last_mode = gim.ctrl_mode;
        }
 
        while (rc.mouse.r)
-       {    /*长按鼠标右键，进入自瞄模式*/
+       {    *//*长按鼠标右键，进入自瞄模式*//*
            gim.ctrl_mode = GIMBAL_AUTO;
-           gim.last_mode = gim.ctrl_mode;
-       }
 
-   }
+       }
+       gim.last_mode = gim.ctrl_mode;
+
+   }*/
+
+
 }
 
 
@@ -205,8 +252,7 @@ int16_t Gimbal_Get_relative_pos(int16_t raw_ecd, int16_t center_offset)
 /*云台初始化处理函数*/
 void Gimbal_Init_handle(void)
 {
-    /*限制云台初始化归中时的相关参数*/
-    Gimbal_Back_param();
+
 
     pit_angle_fdb = pit_relative_angle;
     yaw_angle_fdb = yaw_relative_angle;
@@ -242,19 +288,31 @@ void Gimbal_Init_handle(void)
                 gim.ctrl_mode = GIMBAL_CLOSE_LOOP_ZGYRO;
             else if(rc.sw2 == RC_UP)
                 gim.ctrl_mode = GIMBAL_AUTO;*/
+//            TODO:考虑优化标志位，方便代码维护
+            if(normal_pid_flag == 0){
+                PID_Reset_manual();
 
+                gim.yaw_offset_angle = imu.angle_x;
+                gim.pit_offset_angle = imu.angle_y;
+                pit_angle_ref = 0;
+                yaw_angle_ref = 0;
+
+                /*YawMotor.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_M;
+                YawMotor.FFC_Velocity.MaxOut=YAW_V_FFC_MAXOUT;
+                PitMotor.PID_Velocity.MaxOut=PITCH_V_PID_MAXOUT_M;*/
+                normal_pid_flag = 1;
+                back_pid_flag = 0;
+                back_reset_flag=1;
+            }
 
             /*初始化完毕后，将限制云台归中的相关参数恢复正常*/
-            gim.yaw_offset_angle = imu.angle_x;
-            gim.pit_offset_angle = imu.angle_y;
-            pit_angle_ref = 0;
-            yaw_angle_ref = 0;
-            YawMotor.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_M;
-            YawMotor.FFC_Velocity.MaxOut=YAW_V_FFC_MAXOUT;
-            PitMotor.PID_Velocity.MaxOut=PITCH_V_PID_MAXOUT_M;
+
+
+//            YawMotor.PID_Angle.Ki=0.5;
             //pid_pit_speed.max_output = 8000;
         }break;
     }
+//    Gimbal_Control_moto();
 }
 
 /*云台跟随编码器闭环控制处理函数*/
@@ -277,6 +335,7 @@ void Gimbal_Loop_handle()
         {
             VAL_LIMIT(pit_angle_ref, PIT_ANGLE_MIN, PIT_ANGLE_MAX);
         }
+//    Gimbal_Control_moto();
 }
 
 
@@ -298,7 +357,6 @@ void Gimbal_Control_pitch(void)
 }
 
 
-//TODO:移植自瞄相关，修改各种结构体，枚举等规范
 void Gimbal_Auto_control(void)
 {
     if(auto_pid_flag == 0){
@@ -319,8 +377,8 @@ void Gimbal_Auto_control(void)
 
 //	HAL_GPIO_TogglePin(GPIOG,GPIO_PIN_2);
     if(recv_flag) {
-        pit_angle_ref = data_recv.pitchAngleSet * 0.7f + last_p * 0.3f;
-        yaw_angle_ref = data_recv.yawAngleSet + manual_offset;
+        pit_angle_ref = auto_rx_data.pitchAngleSet * 0.7f + last_p * 0.3f;
+        yaw_angle_ref = auto_rx_data.yawAngleSet + manual_offset;
     }
     //遥控器微调
 //    gimbal_yaw_control();
@@ -336,8 +394,8 @@ void Gimbal_Auto_control(void)
     {
         VAL_LIMIT(yaw_angle_ref, -170, 170);
     }
-    last_p=data_recv.pitchAngleSet;
-    last_y=data_recv.yawAngleSet;
+    last_p=auto_rx_data.pitchAngleSet;
+    last_y=auto_rx_data.yawAngleSet;
 //    //计算pitch轴相对角度差
     pit_angle_fdb = pit_relative_angle;
 //    //计算yaw轴相对角度差
@@ -345,6 +403,37 @@ void Gimbal_Auto_control(void)
     //尝试在自瞄时也使用IMU
 //    pit_angle_fdb = imu.angle_y-gim.pit_offset_angle;
     yaw_angle_fdb = imu.angle_x - gim.yaw_offset_angle;
+
+//    Gimbal_Control_moto();
+}
+
+void Gimbal_Control_moto(void)
+{
+    yaw_moto_current = Motor_Angle_Calculate(&YawMotor, yaw_angle_fdb,imu.gyro_z,yaw_angle_ref);
+
+
+    /* pitch轴俯仰角度限制 */
+    float delta=pit_relative_angle+pit_angle_ref-pit_angle_fdb;
+    if(delta-PIT_ANGLE_MAX>0)
+        pit_angle_ref=pit_angle_fdb+PIT_ANGLE_MAX-pit_relative_angle;
+    else if(delta-PIT_ANGLE_MIN<0)
+        pit_angle_ref=pit_angle_fdb-(PIT_ANGLE_MIN-pit_relative_angle);
+
+
+    VAL_LIMIT(pit_angle_ref, PIT_ANGLE_MIN, PIT_ANGLE_MAX);
+//  /* pitch轴预期速度计算，单位degree/s */
+//  pit_speed_ref    = pid_calc(&pid_pit, pit_angle_fdb, pit_angle_ref);    //degree
+//  /* pitch轴电机电压计算 */
+
+//	pit_moto_current = pid_calc(&pid_pit_speed, imu.gyro_y, pit_speed_ref); //degree/s
+//	//滤波
+//	pit_moto_current = 0.5*last_current + 0.5*pit_moto_current;
+//	last_current = pit_moto_current;
+//pitch轴速度为gyro_x
+    pit_moto_current = Motor_Angle_Calculate(&PitMotor, pit_angle_fdb,imu.gyro_x,pit_angle_ref);
+
+    //发送电流到云台电机电调
+    send_gimbal_moto_current(yaw_moto_current, pit_moto_current);
 }
 
 
@@ -352,6 +441,13 @@ void Gimbal_Auto_control(void)
 void Gimbal_Relax_handle(void)
 {
     static uint8_t data[8];
+
+    if(back_pid_flag == 0){
+        Gimbal_Back_param();
+        back_pid_flag = 1;
+        normal_pid_flag = 0;
+    }
+    back_reset_flag=0;
 
     data[0] = 0;
     data[1] = 0;
@@ -374,6 +470,8 @@ void Gimbal_Back_param(void)
     YawMotor.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_M_INIT;
     YawMotor.FFC_Velocity.MaxOut=YAW_V_FFC_MAXOUT_INIT;
     PitMotor.PID_Velocity.MaxOut=PITCH_V_PID_MAXOUT_INIT_M;
+    //TODO:考虑加入KI值
+//    YawMotor.PID_Angle.Ki=80000;
     ramp_init(&pit_ramp, BACK_CENTER_TIME/GIMBAL_PERIOD);
     ramp_init(&yaw_ramp, BACK_CENTER_TIME/GIMBAL_PERIOD);
 

@@ -5,7 +5,7 @@
 #ifndef HNU_RM_UP_GIMBAL_H
 #define HNU_RM_UP_GIMBAL_H
 
-#endif //HNU_RM_UP_GIMBAL_H
+
 
 #include <user_lib.h>
 #include "stm32f4xx_hal.h"
@@ -171,7 +171,7 @@ typedef struct
 
     float ecd_offset_angle;  //云台初始编码器值
     float yaw_offset_angle;  //云台初始 yaw 轴角度
-    float pit_offset_angle;  //云台初始 yaw 轴角度
+    float pit_offset_angle;  //云台初始 pit 轴角度
 } GimbalYawTypeDef;
 
 
@@ -226,6 +226,11 @@ void Gimbal_Control_yaw(void);
   * @retval    pitch refer angle, unit is degree.
   */
 void Gimbal_Control_pitch(void);
+
+/**
+  * @brief     云台闭环控制电机，发送电流
+  */
+void Gimbal_Control_moto(void);
 
 
 
@@ -287,3 +292,9 @@ extern float yaw_angle_ref;
 extern float pit_angle_ref;
 extern float yaw_angle_fdb;
 extern float pit_angle_fdb;
+
+
+extern bool_t recv_flag;    //虚拟串口接收标志位
+extern float angle_history[50];    //存放25帧历史姿态数据
+
+#endif //HNU_RM_UP_GIMBAL_H

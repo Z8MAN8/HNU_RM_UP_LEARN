@@ -316,12 +316,12 @@ void Get_EulerAngle(float *q)
     AHRS.Pitch = atan2f(2.0f * (q[0] * q[1] + q[2] * q[3]), 2.0f * (q[0] * q[0] + q[3] * q[3]) - 1.0f) * 57.295779513f;
     AHRS.Roll = asinf(-2.0f * (q[1] * q[3] - q[0] * q[2])) * 57.295779513f;
 
-    // Yaw rount count
+    // yaw rount count
     if (AHRS.Yaw - Yaw_Angle_Last > 180.0f)
         Yaw_Round_Count--;
     else if (AHRS.Yaw - Yaw_Angle_Last < -180.0f)
         Yaw_Round_Count++;
-    // Pitch rount count
+    // pitch rount count
     if (AHRS.Pitch - Pitch_Angle_Last > 180.0f)
         Pitch_Round_Count--;
     else if (AHRS.Pitch - Pitch_Angle_Last < -180.0f)

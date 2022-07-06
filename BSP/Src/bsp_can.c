@@ -8,7 +8,8 @@
 #include "bsp_can.h"
 #include "Transmission.h"
 #define CAN_DOWN_TX_INFO 0x133
-chassis_mode_e chassis_mode;
+//TODO:
+//chassis_mode_e chassis_mode;
 /* 云台电机 */
 Motor_t PitMotor;
 Motor_t YawMotor;
@@ -73,7 +74,8 @@ void send_chassis_moto_zero_current(void)
 //    data[7] = 0;
 //
 //    write_can(hcan1, CAN_CHASSIS_ID, data);
-    stop_chassis = 1;
+//TODO:
+//    stop_chassis = 1;
 }
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
@@ -83,10 +85,12 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
     if(hcan==&COM_CAN){
         switch (rx_header.StdId){
             case CAN_DOWN_TX_INFO :
-                chassis_mode = rx_data[0];
+                //TODO:
+//                chassis_mode = rx_data[0];
                 break;
             case 0x134 :
-                shooter_output = rx_data[0];
+                //TODO:
+//                shooter_output = rx_data[0];
                 break;
             case CAN_3508_M3_ID:
             {

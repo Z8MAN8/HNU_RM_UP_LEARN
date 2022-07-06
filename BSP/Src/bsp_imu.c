@@ -10,7 +10,7 @@
   * @brief 获取IMU相关数据.
   * @param imu_data  存储IMU数据的结构体变量.
   */
-void Imu_Get_data(Imu_T *imu_data){
+void Imu_Get_data(ImuTypeDef *imu_data){
 
     imu_data->acc_x = ins.accel[0];
     imu_data->acc_y = ins.accel[1];

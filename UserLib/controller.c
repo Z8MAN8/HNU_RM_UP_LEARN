@@ -115,15 +115,15 @@ void Fuzzy_Rule_Implementation(FuzzyRule_t *fuzzyRule, float measure, float ref)
 
 /******************************* PID CONTROL *********************************/
 // PID优化环节函数声明
-static void f_Trapezoid_Intergral(PID_t *pid);
-static void f_Integral_Limit(PID_t *pid);
-static void f_Derivative_On_Measurement(PID_t *pid);
-static void f_Changing_Integration_Rate(PID_t *pid);
-static void f_Output_Filter(PID_t *pid);
-static void f_Derivative_Filter(PID_t *pid);
-static void f_Output_Limit(PID_t *pid);
-static void f_Proportion_Limit(PID_t *pid);
-static void f_PID_ErrorHandle(PID_t *pid);
+static void f_Trapezoid_Intergral(PIDTypeDef *pid);
+static void f_Integral_Limit(PIDTypeDef *pid);
+static void f_Derivative_On_Measurement(PIDTypeDef *pid);
+static void f_Changing_Integration_Rate(PIDTypeDef *pid);
+static void f_Output_Filter(PIDTypeDef *pid);
+static void f_Derivative_Filter(PIDTypeDef *pid);
+static void f_Output_Limit(PIDTypeDef *pid);
+static void f_Proportion_Limit(PIDTypeDef *pid);
+static void f_PID_ErrorHandle(PIDTypeDef *pid);
 
 /**
   * @brief          PID初始化   PID initialize
@@ -132,24 +132,24 @@ static void f_PID_ErrorHandle(PID_t *pid);
   * @retval         返回空      null
   */
 void PID_Init(
-    PID_t *pid,
-    float max_out,
-    float intergral_limit,
-    float deadband,
+        PIDTypeDef *pid,
+        float max_out,
+        float intergral_limit,
+        float deadband,
 
-    float kp,
-    float Ki,
-    float Kd,
+        float kp,
+        float Ki,
+        float Kd,
 
-    float A,
-    float B,
+        float A,
+        float B,
 
-    float output_lpf_rc,
-    float derivative_lpf_rc,
+        float output_lpf_rc,
+        float derivative_lpf_rc,
 
-    uint16_t ols_order,
+        uint16_t ols_order,
 
-    uint8_t improve)
+        uint8_t improve)
 {
     pid->DeadBand = deadband;
     pid->IntegralLimit = intergral_limit;
@@ -196,7 +196,7 @@ void PID_Init(
   * @param[in]      期望值
   * @retval         返回空
   */
-float PID_Calculate(PID_t *pid, float measure, float ref)
+float PID_Calculate(PIDTypeDef *pid, float measure, float ref)
 {
     if (pid->Improve & ErrorHandle)
         f_PID_ErrorHandle(pid);
@@ -274,7 +274,7 @@ float PID_Calculate(PID_t *pid, float measure, float ref)
     return pid->Output;
 }
 
-static void f_Trapezoid_Intergral(PID_t *pid)
+static void f_Trapezoid_Intergral(PIDTypeDef *pid)
 {
     if (pid->FuzzyRule == NULL)
         pid->ITerm = pid->Ki * ((pid->Err + pid->Last_Err) / 2) * pid->dt;
@@ -282,7 +282,7 @@ static void f_Trapezoid_Intergral(PID_t *pid)
         pid->ITerm = (pid->Ki + pid->FuzzyRule->KiFuzzy) * ((pid->Err + pid->Last_Err) / 2) * pid->dt;
 }
 
-static void f_Changing_Integration_Rate(PID_t *pid)
+static void f_Changing_Integration_Rate(PIDTypeDef *pid)
 {
     if (pid->Err * pid->Iout > 0)
     {
@@ -297,7 +297,7 @@ static void f_Changing_Integration_Rate(PID_t *pid)
     }
 }
 
-static void f_Integral_Limit(PID_t *pid)
+static void f_Integral_Limit(PIDTypeDef *pid)
 {
     static float temp_Output, temp_Iout;
     temp_Iout = pid->Iout + pid->ITerm;
@@ -324,7 +324,7 @@ static void f_Integral_Limit(PID_t *pid)
     }
 }
 
-static void f_Derivative_On_Measurement(PID_t *pid)
+static void f_Derivative_On_Measurement(PIDTypeDef *pid)
 {
     if (pid->FuzzyRule == NULL)
     {
@@ -342,19 +342,19 @@ static void f_Derivative_On_Measurement(PID_t *pid)
     }
 }
 
-static void f_Derivative_Filter(PID_t *pid)
+static void f_Derivative_Filter(PIDTypeDef *pid)
 {
     pid->Dout = pid->Dout * pid->dt / (pid->Derivative_LPF_RC + pid->dt) +
                 pid->Last_Dout * pid->Derivative_LPF_RC / (pid->Derivative_LPF_RC + pid->dt);
 }
 
-static void f_Output_Filter(PID_t *pid)
+static void f_Output_Filter(PIDTypeDef *pid)
 {
     pid->Output = pid->Output * pid->dt / (pid->Output_LPF_RC + pid->dt) +
                   pid->Last_Output * pid->Output_LPF_RC / (pid->Output_LPF_RC + pid->dt);
 }
 
-static void f_Output_Limit(PID_t *pid)
+static void f_Output_Limit(PIDTypeDef *pid)
 {
     if (pid->Output > pid->MaxOut)
     {
@@ -366,7 +366,7 @@ static void f_Output_Limit(PID_t *pid)
     }
 }
 
-static void f_Proportion_Limit(PID_t *pid)
+static void f_Proportion_Limit(PIDTypeDef *pid)
 {
     if (pid->Pout > pid->MaxOut)
     {
@@ -379,7 +379,7 @@ static void f_Proportion_Limit(PID_t *pid)
 }
 
 // PID ERRORHandle Function
-static void f_PID_ErrorHandle(PID_t *pid)
+static void f_PID_ErrorHandle(PIDTypeDef *pid)
 {
     /*Motor Blocked Handle*/
     if (pid->Output < pid->MaxOut * 0.001f || fabsf(pid->Ref) < 0.0001f)

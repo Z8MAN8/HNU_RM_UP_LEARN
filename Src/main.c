@@ -32,7 +32,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "bsp_uart.h"
+#include "bsp_tim.h"
+#include "bsp_delay.h"
+#include "BMI088driver.h"
+#include <calibrate.h>
+#include <bsp_dwt.h>
+#include <bsp_can.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -110,7 +116,14 @@ int main(void)
   MX_TIM8_Init();
   MX_TIM10_Init();
   /* USER CODE BEGIN 2 */
-
+  MX_USB_DEVICE_Init();
+  DWT_Init(168);
+  remote_control_init();
+  CAN_Device_Init();
+  set_pwm_group_param(1, 20000);
+//  read_cali_data();
+  delay_init();
+  BMI088_init(&hspi1);
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in freertos.c) */

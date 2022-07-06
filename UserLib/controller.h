@@ -171,28 +171,28 @@ typedef struct pid_t
 
     void (*User_Func1_f)(struct pid_t *pid);
     void (*User_Func2_f)(struct pid_t *pid);
-} __attribute__((__packed__)) PID_t;
+} __attribute__((__packed__)) PIDTypeDef;
 
 void PID_Init(
-    PID_t *pid,
-    float max_out,
-    float intergral_limit,
-    float deadband,
+        PIDTypeDef *pid,
+        float max_out,
+        float intergral_limit,
+        float deadband,
 
-    float kp,
-    float ki,
-    float kd,
+        float kp,
+        float ki,
+        float kd,
 
-    float A,
-    float B,
+        float A,
+        float B,
 
-    float output_lpf_rc,
-    float derivative_lpf_rc,
+        float output_lpf_rc,
+        float derivative_lpf_rc,
 
-    uint16_t ols_order,
+        uint16_t ols_order,
 
-    uint8_t improve);
-float PID_Calculate(PID_t *pid, float measure, float ref);
+        uint8_t improve);
+float PID_Calculate(PIDTypeDef *pid, float measure, float ref);
 
 /*************************** FEEDFORWARD CONTROL *****************************/
 typedef struct
