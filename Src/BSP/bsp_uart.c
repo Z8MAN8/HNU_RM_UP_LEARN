@@ -8,7 +8,6 @@
 #include <string.h>
 #include <can.h>
 #include <bsp_can.h>
-#include <calibrate.h>
 #include <Gimbal.h>
 #include <stdio.h>
 #include <usart.h>
@@ -17,7 +16,6 @@ char usart6_rxbuf[10];
 extern RecvFrameTypeDef auto_rx_data;
 extern UART_HandleTypeDef huart3;
 extern DMA_HandleTypeDef hdma_usart3_rx;
-extern global_cali_t glb_cali_data;
 extern GimbalYawTypeDef gim;
 extern float yaw_angle_ref,pit_angle_ref;
 //extern uint8_t send_flag;

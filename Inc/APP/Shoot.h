@@ -68,5 +68,9 @@ float ShootAndDelay(float speedInNumsPerSec, uint32_t numsOfOneShot, uint32_t de
 
 
 extern uint8_t  shooter_output; //裁判系统对SHOOT的供电情况
+/*extern PIDTypeDef pid_trigger
+extern PIDTypeDef pid_trigger_speed
+extern PIDTypeDef pid_shoot_left
+extern PIDTypeDef pid_shoot_right*/
 
 #endif //HNU_RM_UP_SHOOT_H

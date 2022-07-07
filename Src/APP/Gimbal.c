@@ -4,9 +4,9 @@
 
 #include "Gimbal.h"
 #include <stdbool.h>
+#include <Ins.h>
 #include "controller.h"
 #include "bsp_can.h"
-#include "bsp_imu.h"
 #include "bsp_uart.h"
 #include "Detect.h"
 #include "ramp.h"
@@ -96,7 +96,7 @@ void gimbal_task(void const * argument){
 
 void Gimbal_Get_information(void){
     /*获取IMU数据*/
-    Imu_Get_data(&imu);
+    IMU_Get_data(&imu);
 
     /*获取云台相对角度*/
     yaw_relative_angle = Gimbal_Get_relative_pos(YawMotor.RawAngle, yaw_center_offset)/22.75f;
@@ -466,4 +466,17 @@ void PID_Reset_auto(){
     c[1] = PITCH_A_FCC_C1_A;
     c[2] = PITCH_A_FCC_C2_A;
     Feedforward_Init(&PitMotor.FFC_Angle, PITCH_A_FFC_MAXOUT_A, c, PITCH_A_FCC_LPF_A, 3, 3);
+}
+
+void IMU_Get_data(ImuTypeDef *imu_data){
+
+    imu_data->acc_x = ins.accel[0];
+    imu_data->acc_y = ins.accel[1];
+    imu_data->acc_z = ins.accel[2];
+    imu_data->angle_x = ins.yaw_total_angle;
+    imu_data->angle_y = ins.roll;
+    imu_data->angle_z = ins.pitch;
+    imu_data->gyro_x = ins.gyro[0];
+    imu_data->gyro_y = ins.gyro[1];
+    imu_data->gyro_z = ins.gyro[2];
 }

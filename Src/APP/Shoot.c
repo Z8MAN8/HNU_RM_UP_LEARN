@@ -4,11 +4,17 @@
 
 #include "Shoot.h"
 #include "bsp_can.h"
-#include "pid.h"
 #include "bsp_uart.h"
 #include "keyboard.h"
 #include "Detect.h"
 #include "bsp_tim.h"
+
+//拨弹电机 PID 结构体定义
+PIDTypeDef pid_trigger       = { 0 };
+PIDTypeDef pid_trigger_speed = { 0 };
+//摩擦轮电机 PID 结构体定义
+PIDTypeDef pid_shoot_left = { 0 };
+PIDTypeDef pid_shoot_right = { 0 };
 
 /* 上次的遥控数据数据 */
 uint8_t   last_left_key;
@@ -50,11 +56,11 @@ uint32_t delayTimeInMs;
 
 void shoot_task(const void* argu){
     /* 拨弹电机PID参数初始化 */
-    PID_Init(&pid_trigger, 4500, 2000, 0.15f, 0.005, 0);
-    PID_Init(&pid_trigger_speed, 7000, 3000, 7.0, 0.5, 0.1);
+    PID_Init_Plus(&pid_trigger, 4500, 2000, 0, 0.15f, 0.005, 0, 0,0,0,0,0,0);
+    PID_Init_Plus(&pid_trigger_speed, 7000, 3000, 0, 7.0, 0.5, 0.1, 0, 0, 0, 0, 0, 0);
     /* 摩擦轮电机PID参数初始化 */
-    PID_Init(&pid_shoot_left, 7000, 3000, 9.0f, 0.02, 0.00);
-    PID_Init(&pid_shoot_right, 7000, 3000, 9.0f, 0.02, 0.00);
+    PID_Init_Plus(&pid_shoot_left, 7000, 3000, 0, 9.0f, 0.02, 0.00, 0, 0, 0, 0, 0, 0);
+    PID_Init_Plus(&pid_shoot_right, 7000, 3000, 0, 9.0f, 0.02, 0.00, 0, 0, 0, 0, 0, 0);
 
     uint32_t shoot_wake_time = osKernelSysTick();
 
@@ -146,7 +152,7 @@ void Cap_Control_open(){
 
 /* 卡弹处理 */
 void Block_Bullet_handle(void){
-    if (pid_trigger_speed.out <= -5000) {  //卡弹电流
+    if (pid_trigger_speed.Pout <= -5000) {  //卡弹电流
         if (stall_f == 0)
             stall_count ++;
     }
@@ -208,7 +214,7 @@ void Shoot_Custom_control(void){
                     shoot_cmd=0;
                 }
                 /* 闭环计算拨弹电机期望转速 */
-                trigger_moto_speed_ref = PID_Calc(&pid_trigger, moto_trigger.total_ecd, trigger_moto_position_ref);
+                trigger_moto_speed_ref = PID_Calculate(&pid_trigger, moto_trigger.total_ecd, trigger_moto_position_ref);
                 goto emmm;
             case TRIBLE_SHOOT:
                 if(shoot_cmd){
@@ -217,7 +223,7 @@ void Shoot_Custom_control(void){
                     shoot_cmd=0;
                 }
                 /* 闭环计算拨弹电机期望转速 */
-                trigger_moto_speed_ref = PID_Calc(&pid_trigger, moto_trigger.total_ecd, trigger_moto_position_ref);
+                trigger_moto_speed_ref = PID_Calculate(&pid_trigger, moto_trigger.total_ecd, trigger_moto_position_ref);
                 goto emmm;
             case CONTINUOUS_SHOOT:
                 speedInNumsPerSec=4.0f;
@@ -232,14 +238,14 @@ void Shoot_Custom_control(void){
         Block_Bullet_handle();                                 //卡弹处理
         /* 闭环计算拨弹电机电流 */
         emmm:
-        trigger_moto_current = PID_Calc(&pid_trigger_speed, moto_trigger.speed_rpm, trigger_moto_speed_ref);
+        trigger_moto_current = PID_Calculate(&pid_trigger_speed, moto_trigger.speed_rpm, trigger_moto_speed_ref);
     }
     else{
         trigger_moto_current = 0;
     }
     /* 闭环计算摩擦轮电机电流 */
-    shoot_moto_current_left = PID_Calc(&pid_shoot_left, moto_shoot[0].speed_rpm, -fric_wheel_speed);
-    shoot_moto_current_right = PID_Calc(&pid_shoot_right, moto_shoot[1].speed_rpm, fric_wheel_speed);
+    shoot_moto_current_left = PID_Calculate(&pid_shoot_left, moto_shoot[0].speed_rpm, -fric_wheel_speed);
+    shoot_moto_current_right = PID_Calculate(&pid_shoot_right, moto_shoot[1].speed_rpm, fric_wheel_speed);
 
     /* 发送拨弹电机、摩擦轮电机电流 */
     ShootMoto_Send_current(shoot_moto_current_left, shoot_moto_current_right, trigger_moto_current);

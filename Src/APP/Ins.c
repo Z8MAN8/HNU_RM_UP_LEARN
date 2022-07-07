@@ -11,7 +11,7 @@
 #include "controller.h"
 #include "usart.h"
 #include "bsp_PWM.h"
-#include "bsp_imu.h"
+#include "Gimbal.h"
 
 InsTypeDef ins;
 InsTxTypeDef ins_tx;

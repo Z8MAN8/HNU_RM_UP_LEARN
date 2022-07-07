@@ -9,8 +9,8 @@
 
 #include <user_lib.h>
 #include "stm32f4xx_hal.h"
-#include "bsp_imu.h"
 #include "bsp_uart.h"
+#include "stdint.h"
 
 /* 云台控制周期 (ms) */
 #define GIMBAL_PERIOD 1
@@ -172,6 +172,23 @@ typedef struct
     float pit_offset_angle;  //云台初始 pit 轴角度
 } GimbalYawTypeDef;
 
+/**
+  * @brief     IMU 数据结构体
+  */
+typedef struct
+{
+    float acc_x;   //m/s^2
+    float acc_y;   //m/s^2
+    float acc_z;   //m/s^2
+    float gyro_x;  //degree/s
+    float gyro_y;  //degree/s
+    float gyro_z;  //degree/s
+    float angle_x; //degree
+    float angle_y; //degree
+    float angle_z; //degree
+} ImuTypeDef;
+
+
 
 /**
   * @brief     云台控制任务函数
@@ -254,6 +271,12 @@ void PID_Reset_manual(void);
   */
 void PID_Reset_auto(void);
 
+/**
+  * @brief 获取IMU相关数据.
+  * @param imu_data  存储IMU数据的结构体变量.
+  */
+void IMU_Get_data(ImuTypeDef *imu_data);
+
 
 extern GimbalYawTypeDef gim;
 extern ImuTypeDef imu;
@@ -271,5 +294,7 @@ extern float pit_angle_fdb;
 
 extern bool_t recv_flag;    //虚拟串口接收标志位
 extern float angle_history[50];    //存放25帧历史姿态数据
+
+
 
 #endif //HNU_RM_UP_GIMBAL_H
