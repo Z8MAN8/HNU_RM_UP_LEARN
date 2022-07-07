@@ -20,8 +20,6 @@
 #define YAW_MOTOR_MAXOUT 30000
 #define PITCH_MOTOR_MAXOUT 30000
 
-
-
 #define YAW_V_PID_MAXOUT_M_INIT 3000
 #define YAW_V_PID_MAXOUT_M 25000
 #define YAW_V_PID_MAXINTEGRAL_M 3000
@@ -191,12 +189,13 @@ static void Gimbal_Init_param(void);
 static void Gimbal_Get_information(void);
 
 /**
-  * @brief     获取云台控制模式
+  * @brief     获取云台控制模式，具体的模式判断在云台归中初始化处理函数中
+  * @retval    GIMBAL_RELAX or GIMBAL_INIT
   */
 static void Gimbal_Get_mode(void);
 
 /**
-  * @brief     云台回中初始化模式处理函数
+  * @brief     云台归中初始化模式处理函数
   */
 static void Gimbal_Init_handle(void);
 
@@ -232,8 +231,6 @@ void Gimbal_Control_pitch(void);
   */
 void Gimbal_Control_moto(void);
 
-
-
 /**
   * @brief     get relative position angle to center
   * @param[in] raw_ecd: gimbal motor encoder raw angle
@@ -241,7 +238,6 @@ void Gimbal_Control_moto(void);
   * @retval    relative angle, unit is degree.
   */
 static int16_t Gimbal_Get_relative_pos(int16_t raw_ecd, int16_t center_offset);
-
 
 /**
   * @brief     限制云台初始化归中时的相关参数
@@ -257,27 +253,6 @@ void PID_Reset_manual(void);
   * @brief     将云台的PID参数切换为自动模式
   */
 void PID_Reset_auto(void);
-
-/**
-  * @brief     判断云台遥控控制信号输入模式
-  * @retval    有输入模式或无输入模式.
-  *//*
-static Action_Mode_e Remote_Is_action(void)
-{
-    if ((abs(rc.ch1) >= 10)
-        || (abs(rc.ch2) >= 10)
-        || (abs(rc.ch3) >= 10)
-        || (abs(rc.ch4) >= 10)
-        || (abs(rc.mouse.x) >= 5)
-        || (abs(rc.mouse.y) >= 5))
-    {
-        return IS_ACTION;
-    }
-    else
-    {
-        return NO_ACTION;
-    }
-}*/
 
 
 extern GimbalYawTypeDef gim;

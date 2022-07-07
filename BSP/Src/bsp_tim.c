@@ -34,7 +34,7 @@ void set_pwm_group_param(uint8_t pwm_group, uint32_t period){
     }
 }
 
-void set_pwm_param(uint8_t pwm_id, uint32_t pulse){
+void PWM_Set_param(uint8_t pwm_id, uint32_t pulse){
     switch (pwm_id) {
         case 1:{
             /* Set the Capture Compare Register value */

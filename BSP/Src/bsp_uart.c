@@ -179,7 +179,7 @@ void USART3_IRQHandler(void)
             if(this_time_rx_len == DBUS_FRAME_SIZE)
             {
                 remote_data_handle(&rc, sbus_rx_buf[0]);
-                err_detector_hook(REMOTE_CTRL_OFFLINE);
+                Err_Detector_hook(REMOTE_CTRL_OFFLINE);
 //                Send_RC_Data(&hcan2, sbus_rx_buf[0]);
 //                Send_RC_Data(&hcan1, sbus_rx_buf[0]);
                 //HAL_GPIO_WritePin(GPIOH,GPIO_PIN_11,GPIO_PIN_SET);
@@ -212,7 +212,7 @@ void USART3_IRQHandler(void)
             {
                 //处理遥控器数据
                 remote_data_handle(&rc, sbus_rx_buf[1]);
-                err_detector_hook(REMOTE_CTRL_OFFLINE);
+                Err_Detector_hook(REMOTE_CTRL_OFFLINE);
 //                Send_RC_Data(&hcan2, sbus_rx_buf[1]);
 //                Send_RC_Data(&hcan1, sbus_rx_buf[1]);
                 //HAL_GPIO_WritePin(GPIOH,GPIO_PIN_12,GPIO_PIN_SET);

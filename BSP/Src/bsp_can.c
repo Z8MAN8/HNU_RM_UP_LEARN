@@ -11,14 +11,14 @@
 //TODO:
 //chassis_mode_e chassis_mode;
 /* 云台电机 */
-Motor_t PitMotor;
-Motor_t YawMotor;
+MotorTypeDef PitMotor;
+MotorTypeDef YawMotor;
 /* 拨弹电机 */
-moto_measure_t moto_trigger;
+MotoMeasureTypeDef moto_trigger;
 /* 底盘电机 */
-Motor_t ChassisMotor[4];
+MotorTypeDef chassis_motor[4];
 /* 3508摩擦轮电机 */
-moto_measure_t moto_shoot[2];//0左，1右；
+MotoMeasureTypeDef moto_shoot[2];//0左，1右；
 
 void CAN_Device_Init(void){
     CAN_FilterTypeDef can_filter_st;
@@ -73,8 +73,7 @@ void send_chassis_moto_zero_current(void)
 //    data[6] = 0;
 //    data[7] = 0;
 //
-//    write_can(hcan1, CAN_CHASSIS_ID, data);
-//TODO:
+//    Write_CAN(hcan1, CAN_CHASSIS_ID, data);
 //    stop_chassis = 1;
 }
 
@@ -89,14 +88,14 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
 //                chassis_mode = rx_data[0];
                 break;
             case 0x134 :
-                //TODO:
-//                shooter_output = rx_data[0];
+                shooter_output = rx_data[0];
                 break;
             case CAN_3508_M3_ID:
             {
                 moto_trigger.msg_cnt++;
-                moto_trigger.msg_cnt <= 10 ? get_moto_offset(&moto_trigger, rx_data) : encoder_data_handle(&moto_trigger, rx_data);
-                err_detector_hook(TRIGGER_MOTO_OFFLINE);
+                moto_trigger.msg_cnt <= 10 ? Get_Moto_offset(&moto_trigger, rx_data) : Encoder_Data_handle(
+                        &moto_trigger, rx_data);
+                Err_Detector_hook(TRIGGER_MOTO_OFFLINE);
             }
                 break;
             default:
@@ -110,7 +109,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
                     get_motor_offset(&YawMotor, rx_data);
                 else
                     get_moto_info(&YawMotor, rx_data);
-                err_detector_hook(GIMBAL_YAW_OFFLINE);
+                Err_Detector_hook(GIMBAL_YAW_OFFLINE);
             }
                 break;
             case CAN_PIT_MOTOR_ID: {
@@ -118,23 +117,23 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
                     get_motor_offset(&PitMotor, rx_data);
                 else
                     get_moto_info(&PitMotor, rx_data);
-                err_detector_hook(GIMBAL_PIT_OFFLINE);
+                Err_Detector_hook(GIMBAL_PIT_OFFLINE);
             }
                 break;
             case CAN_3508_M1_ID:
             {
-                moto_shoot[0].msg_cnt++ <= 50 ? get_moto_offset(&moto_shoot[0], rx_data) : \
-                encoder_data_handle(&moto_shoot[0], rx_data);
-                err_detector_hook(AMMO_BOOSTER1_OFFLINE);
+                moto_shoot[0].msg_cnt++ <= 50 ? Get_Moto_offset(&moto_shoot[0], rx_data) : \
+                Encoder_Data_handle(&moto_shoot[0], rx_data);
+                Err_Detector_hook(AMMO_BOOSTER1_OFFLINE);
             }
                 break;
             case CAN_3508_M2_ID:
             {
                 //PE4置位
                 //GPIOE->BSRR=0x10;
-                moto_shoot[1].msg_cnt++ <= 50 ? get_moto_offset(&moto_shoot[1], rx_data) : \
-      encoder_data_handle(&moto_shoot[1], rx_data);
-                err_detector_hook(AMMO_BOOSTER2_OFFLINE);
+                moto_shoot[1].msg_cnt++ <= 50 ? Get_Moto_offset(&moto_shoot[1], rx_data) : \
+      Encoder_Data_handle(&moto_shoot[1], rx_data);
+                Err_Detector_hook(AMMO_BOOSTER2_OFFLINE);
 
 
                 //PE4复位
@@ -153,31 +152,31 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
     }
 //        case CAN_3508_M1_ID:
 //        {
-//            ChassisMotor[0].msg_cnt++ <= 50 ? get_motor_offset(&ChassisMotor[0], rx_data) : \
-//            get_moto_info(&ChassisMotor[0], rx_data);
-//            err_detector_hook(CHASSIS_M1_OFFLINE);
+//            chassis_motor[0].msg_cnt++ <= 50 ? get_motor_offset(&chassis_motor[0], rx_data) : \
+//            get_moto_info(&chassis_motor[0], rx_data);
+//            Err_Detector_hook(CHASSIS_M1_OFFLINE);
 //        }
 //        break;
 //        case CAN_3508_M2_ID:
 //        {
-//            ChassisMotor[1].msg_cnt++ <= 50 ? get_motor_offset(&ChassisMotor[1], rx_data) : \
-//            get_moto_info(&ChassisMotor[1], rx_data);
-//            err_detector_hook(CHASSIS_M2_OFFLINE);
+//            chassis_motor[1].msg_cnt++ <= 50 ? get_motor_offset(&chassis_motor[1], rx_data) : \
+//            get_moto_info(&chassis_motor[1], rx_data);
+//            Err_Detector_hook(CHASSIS_M2_OFFLINE);
 //        }
 //        break;
 //
 //        case CAN_3508_M3_ID:
 //        {
-//            ChassisMotor[2].msg_cnt++ <= 50 ? get_motor_offset(&ChassisMotor[2], rx_data) : \
-//            get_moto_info(&ChassisMotor[2], rx_data);
-//            err_detector_hook(CHASSIS_M3_OFFLINE);
+//            chassis_motor[2].msg_cnt++ <= 50 ? get_motor_offset(&chassis_motor[2], rx_data) : \
+//            get_moto_info(&chassis_motor[2], rx_data);
+//            Err_Detector_hook(CHASSIS_M3_OFFLINE);
 //        }
 //        break;
 //        case CAN_3508_M4_ID:
 //        {
-//            ChassisMotor[3].msg_cnt++ <= 50 ? get_motor_offset(&ChassisMotor[3], rx_data) : \
-//            get_moto_info(&ChassisMotor[3], rx_data);
-//            err_detector_hook(CHASSIS_M4_OFFLINE);
+//            chassis_motor[3].msg_cnt++ <= 50 ? get_motor_offset(&chassis_motor[3], rx_data) : \
+//            get_moto_info(&chassis_motor[3], rx_data);
+//            Err_Detector_hook(CHASSIS_M4_OFFLINE);
 //        }
 //        break;
 //
@@ -190,7 +189,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
 //        }
 //    }
 
-void write_can(CAN_HandleTypeDef can, uint32_t send_id, uint8_t send_data[]){
+void Write_CAN(CAN_HandleTypeDef can, uint32_t send_id, uint8_t send_data[]){
     uint32_t send_mail_box;
     tx_message.StdId = send_id;
     tx_message.IDE = CAN_ID_STD;
@@ -202,13 +201,12 @@ void write_can(CAN_HandleTypeDef can, uint32_t send_id, uint8_t send_data[]){
 }
 
 
-
 /**
   * @brief     获得电机初始偏差
-  * @param     ptr: 电机参数 moto_measure_t 结构体指针
+  * @param     ptr: 电机参数 MotoMeasureTypeDef 结构体指针
   * @param     data: 接收到的电机 CAN 数据指针
   */
-static void get_moto_offset(moto_measure_t *ptr, uint8_t data[])
+static void Get_Moto_offset(MotoMeasureTypeDef *ptr, uint8_t data[])
 {
     ptr->ecd        = (uint16_t)(data[0] << 8 | data[1]);
     ptr->offset_ecd = ptr->ecd;
@@ -217,10 +215,10 @@ static void get_moto_offset(moto_measure_t *ptr, uint8_t data[])
 /**
   * @brief     计算电机的转速rmp 圈数round_cnt
   *            总编码器数值total_ecd 总旋转的角度total_angle
-  * @param     ptr: 电机参数 moto_measure_t 结构体指针
+  * @param     ptr: 电机参数 MotoMeasureTypeDef 结构体指针
   * @param     data: 接收到的电机 CAN 数据指针
   */
-static void encoder_data_handle(moto_measure_t *ptr, uint8_t data[])
+static void Encoder_Data_handle(MotoMeasureTypeDef *ptr, uint8_t data[])
 {
     int32_t temp_sum = 0;
 
@@ -266,7 +264,7 @@ static void encoder_data_handle(moto_measure_t *ptr, uint8_t data[])
 extern int16_t trigger_moto_current;
 
 //#ifdef TEST_ON_ICRA
-//void send_gimbal_moto_current(int16_t yaw_current, int16_t pit_current)
+//void GimbalMoto_Send_current(int16_t yaw_current, int16_t pit_current)
 //{
 //    static uint8_t data[8];
 //    static uint8_t data_yaw[8];
@@ -289,10 +287,10 @@ extern int16_t trigger_moto_current;
 //    data_yaw[6] = 0;
 //    data_yaw[7] = 0;
 //
-//    write_can(CONTROL_CAN, CAN_GIMBAL_ID_PITCH, data);
-//    write_can(CONTROL_CAN, CAN_GIMBAL_ID_YAW, data_yaw);
+//    Write_CAN(CONTROL_CAN, CAN_GIMBAL_ID_PITCH, data);
+//    Write_CAN(CONTROL_CAN, CAN_GIMBAL_ID_YAW, data_yaw);
 //}
-//void send_gimbal_moto_zero_current(void)
+//void GimbalMoto_Send_zero_current(void)
 //{
 //    static uint8_t data[8];
 //
@@ -305,12 +303,12 @@ extern int16_t trigger_moto_current;
 //    data[6] = 0;
 //    data[7] = 0;
 //
-//    write_can(CONTROL_CAN, CAN_GIMBAL_ID_YAW, data);
-//    write_can(CONTROL_CAN, CAN_GIMBAL_ID_PITCH, data);
+//    Write_CAN(CONTROL_CAN, CAN_GIMBAL_ID_YAW, data);
+//    Write_CAN(CONTROL_CAN, CAN_GIMBAL_ID_PITCH, data);
 //}
 //
 //#else
-void send_gimbal_moto_current(int16_t yaw_current, int16_t pit_current)
+void GimbalMoto_Send_current(int16_t yaw_current, int16_t pit_current)
 {
     static uint8_t data[8];
 
@@ -323,12 +321,11 @@ void send_gimbal_moto_current(int16_t yaw_current, int16_t pit_current)
     data[6] = 0;
     data[7] = 0;
 
-    write_can(CONTROL_CAN, CAN_GIMBAL_ID, data);
+    Write_CAN(CONTROL_CAN, CAN_GIMBAL_ID, data);
 }
-void send_gimbal_moto_zero_current(void)
+void GimbalMoto_Send_zero_current(void)
 {
     static uint8_t data[8];
-
     data[0] = 0;
     data[1] = 0;
     data[2] = 0;
@@ -337,26 +334,23 @@ void send_gimbal_moto_zero_current(void)
     data[5] = 0;
     data[6] = 0;
     data[7] = 0;
-
-    write_can(CONTROL_CAN, CAN_GIMBAL_ID, data);
+    Write_CAN(CONTROL_CAN, CAN_GIMBAL_ID, data);
 }
 //#endif
 
-void send_shoot_moto_current(int16_t left_current,int16_t right_current, int16_t trigger_current)
+void ShootMoto_Send_current(int16_t left_current, int16_t right_current, int16_t pit_current)
 {
     static uint8_t data[8];
-
     data[0] = left_current >> 8;
     data[1] = left_current;
     data[2] = right_current >> 8;
     data[3] = right_current;
-    data[4] = trigger_current >> 8;
-    data[5] = trigger_current;
+    data[4] = pit_current >> 8;
+    data[5] = pit_current;
     data[6] = 0;
     data[7] = 0;
-
-    write_can(CONTROL_CAN, CAN_CHASSIS_ID, data);
-    write_can(hcan2, CAN_CHASSIS_ID, data);
+    Write_CAN(CONTROL_CAN, CAN_CHASSIS_ID, data);
+    Write_CAN(hcan2, CAN_CHASSIS_ID, data);
 }
 
 void sendSuperCap(void)
@@ -365,6 +359,5 @@ void sendSuperCap(void)
     uint8_t sendbuf[8];//发送的数据内容
     sendbuf[0]=temPower >> 8;
     sendbuf[1]=temPower;
-    write_can(COM_CAN, CAN_SUPER_CAP_ID, sendbuf);
-
+    Write_CAN(COM_CAN, CAN_SUPER_CAP_ID, sendbuf);
 }

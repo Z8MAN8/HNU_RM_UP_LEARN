@@ -58,7 +58,7 @@ static void abs_limit(float *a, float ABS_MAX)
   * @param[in] intergral_limit: 积分限幅
   * @param[in] kp/ki/kd: 具体 PID 参数
   */
-void pid_init(pid_t *pid, uint32_t max_out, uint32_t intergral_limit, \
+void PID_Init(pid_t *pid, uint32_t max_out, uint32_t intergral_limit, \
               float kp, float ki, float kd)
 {
   pid->integral_limit = intergral_limit;
@@ -76,7 +76,7 @@ void pid_init(pid_t *pid, uint32_t max_out, uint32_t intergral_limit, \
   * @param[in] set: 目标数据
   * @retval    PID 计算输出
   */
-float pid_calc(pid_t *pid, float get, float set)
+float PID_Calc(pid_t *pid, float get, float set)
 {
   pid->get = get;
   pid->set = set;
@@ -101,7 +101,7 @@ float pid_calc(pid_t *pid, float get, float set)
   * @param[in] pid: PID 结构体
   * @param[in] kp/ki/kd: 具体 PID 参数
   */
-void pid_reset(pid_t *pid, float kp, float ki, float kd)
+void PID_Reset(pid_t *pid, float kp, float ki, float kd)
 {
   pid->p = kp;
   pid->i = ki;
@@ -122,7 +122,7 @@ void pid_reset(pid_t *pid, float kp, float ki, float kd)
   * @param[in] intergral_limit: 积分限幅
   * @param[in] kp/ki/kd: 具体 PID 参数
   */
-void pid_init_new(pid_t *pid, uint32_t max_out, uint32_t intergral_limit, float flitering_rate,\
+void PID_Init_new(pid_t *pid, uint32_t max_out, uint32_t intergral_limit, float flitering_rate,\
               float kp, float ki, float kd)
 {
   pid->integral_limit = intergral_limit;
@@ -140,7 +140,7 @@ void pid_init_new(pid_t *pid, uint32_t max_out, uint32_t intergral_limit, float 
   * @param[in] pid: PID 结构体
   * @param[in] kp/ki/kd: 具体 PID 参数
   */
-void pid_reset_new(pid_t *pid, float kp, float ki, float kd)
+void PID_Reset_new(pid_t *pid, float kp, float ki, float kd)
 {
   pid->p = kp;
   pid->i = ki;
@@ -153,7 +153,7 @@ void pid_reset_new(pid_t *pid, float kp, float ki, float kd)
 	pid->last_dout = 0;
 }
 
-float pid_calc_new(pid_t *pid, float get, float set)
+float PID_Calc_new(pid_t *pid, float get, float set)
 {
   pid->get = get;
   pid->set = set;

@@ -131,15 +131,15 @@ static void f_PID_ErrorHandle(PIDTypeDef *pid);
   * @param[in]      略
   * @retval         返回空      null
   */
-void PID_Init(
+void PID_Init_Plus(
         PIDTypeDef *pid,
         float max_out,
         float intergral_limit,
         float deadband,
 
         float kp,
-        float Ki,
-        float Kd,
+        float ki,
+        float kd,
 
         float A,
         float B,
@@ -157,8 +157,8 @@ void PID_Init(
     pid->Ref = 0;
 
     pid->Kp = kp;
-    pid->Ki = Ki;
-    pid->Kd = Kd;
+    pid->Ki = ki;
+    pid->Kd = kd;
     pid->ITerm = 0;
 
     // 变速积分参数

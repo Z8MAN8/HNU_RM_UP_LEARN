@@ -47,7 +47,7 @@ void set_pwm_group_param(uint8_t pwm_group, uint32_t period);
   * @param     pwm_id: PWM IO 的 ID
   * @param     pulse: 配置 PWM 的高电平时间，单位是微秒(us)
   */
-void set_pwm_param(uint8_t pwm_id, uint32_t pulse);
+void PWM_Set_param(uint8_t pwm_id, uint32_t pulse);
 
 
 #endif //BOARD_C_INFANTRY_BSP_TIM_H

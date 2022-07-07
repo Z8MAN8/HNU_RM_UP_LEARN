@@ -26,7 +26,7 @@ typedef enum
     BOARD_ACCEL_TOE,
     BOARD_GYRO_TOE,
     BOARD_MAG_TOE
-} err_id_e;
+} ErrIDType;
 typedef struct
 {
     volatile uint32_t last_time;
@@ -35,17 +35,17 @@ typedef struct
     volatile uint32_t warn_pri : 6;    //priority
     volatile uint32_t delta_time : 16; //time interval last
     volatile uint32_t set_timeout : 16;
-} __attribute__((__packed__)) offline_dev_t;
+} __attribute__((__packed__)) OfflineDevTypeDef;
 typedef struct
 {
-    volatile offline_dev_t *err_now;
-    volatile offline_dev_t  err_list[ERROR_LIST_LENGTH];
-    err_id_e err_id;
-} __attribute__((__packed__)) glb_err_type_t;
-void global_err_detector_init(void);
-void err_detector_hook(int err_id);
+    volatile OfflineDevTypeDef *err_now;
+    volatile OfflineDevTypeDef  err_list[ERROR_LIST_LENGTH];
+    ErrIDType err_id;
+} __attribute__((__packed__)) GlbErrTypeDef;
+void GlobalErr_Detector_init(void);
+void Err_Detector_hook(int err_id);
 void detect_task(const void* argu);
 
-void module_offline_callback(void);
+void Module_Offline_callback(void);
 
-extern glb_err_type_t glb_err;
+extern GlbErrTypeDef glb_err;

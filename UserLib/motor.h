@@ -84,14 +84,14 @@ typedef struct motor_t
     void (*TorqueCtrl_User_Func_f)(struct motor_t *motor);
     void (*SpeedCtrl_User_Func_f)(struct motor_t *motor);
     void (*AngleCtrl_User_Func_f)(struct motor_t *motor);
-} __attribute__((__packed__)) Motor_t;
+} __attribute__((__packed__)) MotorTypeDef;
 
-float Motor_Torque_Calculate(Motor_t *motor, float torque, float target_torque);
-float Motor_Speed_Calculate(Motor_t *motor, float velocity, float target_speed);
-float Motor_Angle_Calculate(Motor_t *motor, float angle, float velocity, float target_angle);
+float Motor_Torque_Calculate(MotorTypeDef *motor, float torque, float target_torque);
+float Motor_Speed_Calculate(MotorTypeDef *motor, float velocity, float target_speed);
+float Motor_Angle_Calculate(MotorTypeDef *motor, float angle, float velocity, float target_angle);
 
-void get_moto_info(Motor_t *ptr, uint8_t *aData);
-void get_motor_offset(Motor_t *ptr, uint8_t *aData);
+void get_moto_info(MotorTypeDef *ptr, uint8_t *aData);
+void get_motor_offset(MotorTypeDef *ptr, uint8_t *aData);
 
 //HAL_StatusTypeDef Send_Motor_Current_1_4(CAN_HandleTypeDef *_hcan, int16_t c1, int16_t c2, int16_t c3, int16_t c4);
 //HAL_StatusTypeDef Send_Motor_Current_5_8(CAN_HandleTypeDef *_hcan, int16_t c1, int16_t c2, int16_t c3, int16_t c4);

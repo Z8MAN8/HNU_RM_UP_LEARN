@@ -7,7 +7,7 @@
 #include <stm32f4xx_hal.h>
 #include <cmsis_os.h>
 
-glb_err_type_t glb_err;
+GlbErrTypeDef glb_err;
 extern uint8_t  fric_wheel_run;
 
 static uint8_t  beep_ctrl;
@@ -19,7 +19,7 @@ static uint16_t err_count;
 /**
   * @brief     初始化离线设备检测数据结构
   */
-void global_err_detector_init(void)
+void GlobalErr_Detector_init(void)
 {
     glb_err.err_now = NULL;
 
@@ -69,7 +69,7 @@ void global_err_detector_init(void)
   * @retval    None
   * @usage     used in CAN/usart.. rx interrupt callback
   */
-void err_detector_hook(int err_id)
+void Err_Detector_hook(int err_id)
 {
     if (glb_err.err_list[err_id].enable)
         glb_err.err_list[err_id].last_time = HAL_GetTick();
@@ -83,7 +83,7 @@ void err_detector_hook(int err_id)
   */
 void detect_task(const void* argu)
 {
-    global_err_detector_init();
+    GlobalErr_Detector_init();
     osDelay(100);
 
     //beep_ctrl = BEEP_OFF;
@@ -104,7 +104,7 @@ void detect_task(const void* argu)
                 {
                     max_priority   = glb_err.err_list[id].warn_pri;
                     glb_err.err_now = &(glb_err.err_list[id]);
-                    glb_err.err_id  = (err_id_e)id;
+                    glb_err.err_id  = (ErrIDType)id;
                 }
             }
             else
@@ -120,7 +120,7 @@ void detect_task(const void* argu)
         if (glb_err.err_now != NULL)
         {
             //LED_G_OFF;
-            module_offline_callback();
+            Module_Offline_callback();
         }
         else
         {
@@ -136,7 +136,7 @@ void detect_task(const void* argu)
 }
 
 
-void module_offline_callback(void)
+void Module_Offline_callback(void)
 {
     err_count++;
     if (err_count > 50)

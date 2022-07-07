@@ -13,9 +13,11 @@
 #define CAN_RC_DATA_Frame_1 0x132
 #define COM_CAN hcan2
 #define CONTROL_CAN hcan1
+#define FILTER_BUF 5
+
 static CAN_TxHeaderTypeDef  tx_message;
 static uint8_t              can_send_data[8];
-extern Motor_t ChassisMotor[4];
+extern MotorTypeDef chassis_motor[4];
 //TODO
 //extern chassis_mode_e chassis_mode;
 
@@ -38,7 +40,7 @@ typedef enum
     CAN_GIMBAL_ID_PITCH        = 0x1ff,
     CAN_GIMBAL_ID_YAW          = 0x2ff,
 
-} can_msg_id_e;
+} CANMsgIDType;
 #else
 typedef enum
 {
@@ -56,22 +58,20 @@ typedef enum
     CAN_SUPER_CAP_ID      = 0X210,
     CAN_GIMBAL_ID        = 0x1ff,
 
-} can_msg_id_e;
+} CANMsgIDType;
 #endif
 void CAN_Device_Init(void);
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);
+
 /**
   * @brief     发送 CAN 数据
   * @param     can_id: CAN 设备 ID，只有 CAN1 或者 CAN2
   * @param     send_id: 发送数据 ID
   * @param     send_data: 发送数据指针，大小为 8 位
   */
-void write_can(CAN_HandleTypeDef can, uint32_t send_id, uint8_t send_data[]);
+void Write_CAN(CAN_HandleTypeDef can, uint32_t send_id, uint8_t send_data[]);
 
 
-
-
-#define FILTER_BUF 5
 /**
   * @brief     电机参数结构体
   */
@@ -95,15 +95,15 @@ typedef struct
     int32_t  rate_buf[FILTER_BUF];
     uint8_t  buf_cut;
     int32_t  filter_rate;
-} moto_measure_t;
+} MotoMeasureTypeDef;
 
 
-extern Motor_t ChassisMotor[];
-extern Motor_t YawMotor;
-extern Motor_t PitMotor;
-extern moto_measure_t moto_trigger;
-extern moto_measure_t moto_test;
-extern moto_measure_t moto_shoot[];//0左，1右；
+extern MotorTypeDef chassis_motor[];
+extern MotorTypeDef YawMotor;
+extern MotorTypeDef PitMotor;
+extern MotoMeasureTypeDef moto_trigger;
+extern MotoMeasureTypeDef moto_test;
+extern MotoMeasureTypeDef moto_shoot[];//0左，1右；
 extern float PowerData[4];
 //extern int shoot_status;
 //extern int shoot_cnt;
@@ -124,31 +124,36 @@ void can2_recv_callback(uint32_t recv_id, uint8_t data[]);
 /**
   * @brief     计算电机的转速rmp 圈数round_cnt
   *            总编码器数值total_ecd 总旋转的角度total_angle
-  * @param     ptr: 电机参数 moto_measure_t 结构体指针
+  * @param     ptr: 电机参数 MotoMeasureTypeDef 结构体指针
   * @param     data: 接收到的电机 CAN 数据指针
   */
-static void encoder_data_handle(moto_measure_t *ptr, uint8_t data[]);
+static void Encoder_Data_handle(MotoMeasureTypeDef *ptr, uint8_t data[]);
+
 /**
   * @brief     获得电机初始偏差
-  * @param     ptr: 电机参数 moto_measure_t 结构体指针
+  * @param     ptr: 电机参数 MotoMeasureTypeDef 结构体指针
   * @param     data: 接收到的电机 CAN 数据指针
   */
-static void get_moto_offset(moto_measure_t *ptr, uint8_t data[]);
+static void Get_Moto_offset(MotoMeasureTypeDef *ptr, uint8_t data[]);
+
 /**
   * @brief     发送底盘电机电流数据到电调
   */
 void send_chassis_moto_current(int16_t current[]);
 void send_chassis_moto_zero_current(void);
+
 /**
   * @brief     发送云台电机电流数据到电调
   */
-void send_gimbal_moto_current(int16_t yaw_current, int16_t pit_current);
-void send_gimbal_moto_zero_current(void);
+void GimbalMoto_Send_current(int16_t yaw_current, int16_t pit_current);
+void GimbalMoto_Send_zero_current(void);
+
 /**
   * @brief     发送云台电机电流数据到电调
   */
-void send_shoot_moto_current(int16_t left_current,int16_t right_current, int16_t pit_current);
+void ShootMoto_Send_current(int16_t left_current, int16_t right_current, int16_t pit_current);
 void sendSuperCap(void);
+
 /**
   * @brief     发送功率信息到电容管理板
  */

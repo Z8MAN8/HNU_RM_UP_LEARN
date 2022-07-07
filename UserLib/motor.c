@@ -14,7 +14,7 @@
 #include "stm32f4xx_hal_can.h"
 
 
-float Motor_Torque_Calculate(Motor_t *motor, float torque, float target_torque)
+float Motor_Torque_Calculate(MotorTypeDef *motor, float torque, float target_torque)
 {
     // 前馈控制
     Feedforward_Calculate(&motor->FFC_Torque, target_torque);
@@ -34,7 +34,7 @@ float Motor_Torque_Calculate(Motor_t *motor, float torque, float target_torque)
     return motor->Output;
 }
 
-float Motor_Speed_Calculate(Motor_t *motor, float velocity, float target_speed)
+float Motor_Speed_Calculate(MotorTypeDef *motor, float velocity, float target_speed)
 {
     // 前馈控制
     Feedforward_Calculate(&motor->FFC_Velocity, target_speed);
@@ -54,7 +54,7 @@ float Motor_Speed_Calculate(Motor_t *motor, float velocity, float target_speed)
     return motor->Output;
 }
 
-float Motor_Angle_Calculate(Motor_t *motor, float angle, float velocity, float target_angle)
+float Motor_Angle_Calculate(MotorTypeDef *motor, float angle, float velocity, float target_angle)
 {
     // 外环前馈控制
     Feedforward_Calculate(&motor->FFC_Angle, target_angle);
@@ -71,13 +71,13 @@ float Motor_Angle_Calculate(Motor_t *motor, float angle, float velocity, float t
 }
 
 /**
-  * @Func	    void get_moto_info(moto_measure_t *ptr, CAN_HandleTypeDef* hcan)
+  * @Func	    void get_moto_info(MotoMeasureTypeDef *ptr, CAN_HandleTypeDef* hcan)
   * @Brief      process data received from CAN
-  * @Param	    Motor_t *ptr  CAN_HandleTypeDef *_hcan
+  * @Param	    MotorTypeDef *ptr  CAN_HandleTypeDef *_hcan
   * @Retval	    None
   * @Date       2019/11/5
  **/
-void get_moto_info(Motor_t *ptr, uint8_t *aData)
+void get_moto_info(MotorTypeDef *ptr, uint8_t *aData)
 {
     // 详见C620电调手册
     if (ptr->Direction != NEGATIVE)
@@ -109,7 +109,7 @@ void get_moto_info(Motor_t *ptr, uint8_t *aData)
 }
 
 /*this function should be called after system+can init */
-void get_motor_offset(Motor_t *ptr, uint8_t *aData)
+void get_motor_offset(MotorTypeDef *ptr, uint8_t *aData)
 {
     ptr->RawAngle = (uint16_t)(aData[0] << 8 | aData[1]);
     ptr->offset_angle = ptr->RawAngle;

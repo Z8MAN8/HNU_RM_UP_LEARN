@@ -83,7 +83,7 @@ typedef struct
   * @param[in] intergral_limit: 积分限幅
   * @param[in] kp/ki/kd: 具体 PID 参数
   */
-void pid_init(pid_t *pid, uint32_t max_out, uint32_t intergral_limit, \
+void PID_Init(pid_t *pid, uint32_t max_out, uint32_t intergral_limit, \
               float kp, float ki, float kd);
 
 /**
@@ -91,7 +91,7 @@ void pid_init(pid_t *pid, uint32_t max_out, uint32_t intergral_limit, \
   * @param[in] pid: PID 结构体
   * @param[in] kp/ki/kd: 具体 PID 参数
   */
-void pid_reset(pid_t *pid, float kp, float ki, float kd);
+void PID_Reset(pid_t *pid, float kp, float ki, float kd);
 
 /**
   * @brief     PID 计算函数，使用位置式 PID 计算
@@ -100,7 +100,7 @@ void pid_reset(pid_t *pid, float kp, float ki, float kd);
   * @param[in] set: 目标数据
   * @retval    PID 计算输出
   */
-float pid_calc(pid_t *pid, float get, float set);
+float PID_Calc(pid_t *pid, float get, float set);
 
 
 /**
@@ -108,20 +108,20 @@ float pid_calc(pid_t *pid, float get, float set);
   * @param[in] pid: PID 结构体
   * @param[in] max_out: 最大输出
   * @param[in] intergral_limit: 积分限幅
-  * @param[in] kp/ki/kd: 具体 PID 参数
+  * @param[in] flitering_rate/ki/kd: 具体 PID 参数
   */
 	
 	
 /******************************************自定义的给d加了一阶低通滤波的pid算法******************************/
-void pid_init_new(pid_t *pid, uint32_t max_out, uint32_t intergral_limit, \
-              float kp, float ki, float kd, float filtering_rate);
+void PID_Init_new(pid_t *pid, uint32_t max_out, uint32_t intergral_limit, \
+              float flitering_rate, float kp, float ki, float kd);
 
 /**
   * @brief     PID 参数复位函数
   * @param[in] pid: PID 结构体
   * @param[in] kp/ki/kd: 具体 PID 参数
   */
-void pid_reset_new(pid_t *pid, float kp, float ki, float kd);
+void PID_Reset_new(pid_t *pid, float kp, float ki, float kd);
 
 /**
   * @brief     给d加了一阶低通滤波的PID 计算函数，使用位置式 PID 计算
@@ -131,7 +131,7 @@ void pid_reset_new(pid_t *pid, float kp, float ki, float kd);
 	* @param[in] last_dout 指向存放上一次d输出的值的位置的指针
   * @retval    PID 计算输出
   */
-float pid_calc_new(pid_t *pid, float get, float set);
+float PID_Calc_new(pid_t *pid, float get, float set);
 
 //云台电机 PID 结构体定义
 //extern pid_t pid_pit;
