@@ -5,8 +5,6 @@
 #ifndef HNU_RM_UP_GIMBAL_H
 #define HNU_RM_UP_GIMBAL_H
 
-
-
 #include <user_lib.h>
 #include "stm32f4xx_hal.h"
 #include "bsp_uart.h"
@@ -172,21 +170,7 @@ typedef struct
     float pit_offset_angle;  //云台初始 pit 轴角度
 } GimbalYawTypeDef;
 
-/**
-  * @brief     IMU 数据结构体
-  */
-typedef struct
-{
-    float acc_x;   //m/s^2
-    float acc_y;   //m/s^2
-    float acc_z;   //m/s^2
-    float gyro_x;  //degree/s
-    float gyro_y;  //degree/s
-    float gyro_z;  //degree/s
-    float angle_x; //degree
-    float angle_y; //degree
-    float angle_z; //degree
-} ImuTypeDef;
+
 
 
 
@@ -271,15 +255,9 @@ void PID_Reset_manual(void);
   */
 void PID_Reset_auto(void);
 
-/**
-  * @brief 获取IMU相关数据.
-  * @param imu_data  存储IMU数据的结构体变量.
-  */
-void IMU_Get_data(ImuTypeDef *imu_data);
 
 
 extern GimbalYawTypeDef gim;
-extern ImuTypeDef imu;
 
 /* 云台相对角度,unit: degree*/
 extern volatile float yaw_relative_angle;

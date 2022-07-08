@@ -131,7 +131,7 @@ static void f_PID_ErrorHandle(PIDTypeDef *pid);
   * @param[in]      略
   * @retval         返回空      null
   */
-void PID_Init_Plus(
+void PID_Init(
         PIDTypeDef *pid,
         float max_out,
         float intergral_limit,

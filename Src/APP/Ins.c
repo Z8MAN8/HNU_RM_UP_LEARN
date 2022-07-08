@@ -53,7 +53,7 @@ void ins_task(void const * argument)
 
     IMU_QuaternionEKF_Init(10, 0.001, 1000000 * 10, 0.9996 * 0 + 1, 0);
     // imu heat init
-    PID_Init_Plus(&TempCtrl, 2000, 300, 0, 1000, 20, 0, 0, 0, 0, 0, 0, 0);
+    PID_Init(&TempCtrl, 2000, 300, 0, 1000, 20, 0, 0, 0, 0, 0, 0, 0);
     HAL_TIM_PWM_Start(&htim10, TIM_CHANNEL_1);
     uint32_t ins_wake_time = osKernelSysTick();
     /* Infinite loop */
@@ -329,3 +329,17 @@ void IMU_Temperature_Ctrl(void)
 
     TIM_Set_PWM(&htim10, TIM_CHANNEL_1, float_constrain(float_rounding(TempCtrl.Output), 0, UINT32_MAX));
 }
+
+void IMU_Get_data(ImuTypeDef *imu_data){
+
+    imu_data->acc_x = ins.accel[0];
+    imu_data->acc_y = ins.accel[1];
+    imu_data->acc_z = ins.accel[2];
+    imu_data->angle_x = ins.yaw_total_angle;
+    imu_data->angle_y = ins.roll;
+    imu_data->angle_z = ins.pitch;
+    imu_data->gyro_x = ins.gyro[0];
+    imu_data->gyro_y = ins.gyro[1];
+    imu_data->gyro_z = ins.gyro[2];
+}
+

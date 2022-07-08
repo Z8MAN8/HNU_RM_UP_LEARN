@@ -56,11 +56,11 @@ uint32_t delayTimeInMs;
 
 void shoot_task(const void* argu){
     /* 拨弹电机PID参数初始化 */
-    PID_Init_Plus(&pid_trigger, 4500, 2000, 0, 0.15f, 0.005, 0, 0,0,0,0,0,0);
-    PID_Init_Plus(&pid_trigger_speed, 7000, 3000, 0, 7.0, 0.5, 0.1, 0, 0, 0, 0, 0, 0);
+    PID_Init(&pid_trigger, 4500, 2000, 0, 0.15f, 0.005, 0, 0, 0, 0, 0, 0, 0);
+    PID_Init(&pid_trigger_speed, 7000, 3000, 0, 7.0, 0.5, 0.1, 0, 0, 0, 0, 0, 0);
     /* 摩擦轮电机PID参数初始化 */
-    PID_Init_Plus(&pid_shoot_left, 7000, 3000, 0, 9.0f, 0.02, 0.00, 0, 0, 0, 0, 0, 0);
-    PID_Init_Plus(&pid_shoot_right, 7000, 3000, 0, 9.0f, 0.02, 0.00, 0, 0, 0, 0, 0, 0);
+    PID_Init(&pid_shoot_left, 7000, 3000, 0, 9.0f, 0.02, 0.00, 0, 0, 0, 0, 0, 0);
+    PID_Init(&pid_shoot_right, 7000, 3000, 0, 9.0f, 0.02, 0.00, 0, 0, 0, 0, 0, 0);
 
     uint32_t shoot_wake_time = osKernelSysTick();
 

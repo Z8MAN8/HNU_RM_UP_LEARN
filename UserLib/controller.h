@@ -173,7 +173,7 @@ typedef struct pid_t
     void (*User_Func2_f)(struct pid_t *pid);
 } __attribute__((__packed__)) PIDTypeDef;
 
-void PID_Init_Plus(
+void PID_Init(
         PIDTypeDef *pid,
         float max_out,
         float intergral_limit,
