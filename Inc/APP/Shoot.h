@@ -11,7 +11,7 @@
 #include "Gimbal.h"
 
 /*************************发射速度设置*******************************/
-#define SHOT_FRIC_WHEEL_SPEED    7000
+#define SHOT_FRIC_WHEEL_SPEED    4000
 #define SHOT_SUCCESS_FRIC_WHEEL_SPEED  6800  //发射成功摩擦轮会减速
 #define SHOT_ABLE_FRIC_WHEEL_SPEED  6000
 #define SHOOT_PERIOD 2

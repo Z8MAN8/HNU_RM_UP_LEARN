@@ -239,6 +239,9 @@ void Gimbal_Control_pitch(void){
 
 
 void Gimbal_Auto_control(void){
+    float gimbal_yaw;
+    float gimbal_pitch;  //解析上位机发送的云台角度
+
     /*自瞄模式中与普通模式的相互切换*/
     if(rc.sw2==RC_UP){
         gim.ctrl_mode=GIMBAL_CLOSE_LOOP_ZGYRO;
@@ -262,9 +265,16 @@ void Gimbal_Auto_control(void){
                        -fx * KB_RATIO * GIMBAL_PC_MOVE_RATIO_YAW;
 
 //	HAL_GPIO_TogglePin(GPIOG,GPIO_PIN_2);
-        if(recv_flag) {
-            pit_angle_ref = auto_rx_data.pitchAngleSet * 0.7f + last_p * 0.3f;
-            yaw_angle_ref = auto_rx_data.yawAngleSet + manual_offset;
+//TODO:
+        if(upper_rx_data.ID == 0x20 && recv_flag) {  //欧拉角rpy方式控制
+            if (upper_rx_data.DATA[0]){     //相对角度控
+                gimbal_yaw = (int32_t)(upper_rx_data.DATA[4] << 24 | upper_rx_data.DATA[3] << 16
+                        | upper_rx_data.DATA[2] << 8 | upper_rx_data.DATA[1])/1000;
+                gimbal_pitch = (int32_t)(upper_rx_data.DATA[8] << 24 | upper_rx_data.DATA[7] << 16
+                                       | upper_rx_data.DATA[6] << 8 | upper_rx_data.DATA[5])/1000;
+            }
+            pit_angle_ref = gimbal_pitch * 0.7f + last_p * 0.3f;
+            yaw_angle_ref = gimbal_yaw + manual_offset;
         }
         //遥控器微调
 //    gimbal_yaw_control();
@@ -278,8 +288,8 @@ void Gimbal_Auto_control(void){
         if ((yaw_angle_ref >= 170) && (yaw_angle_ref <= -170)){
             VAL_LIMIT(yaw_angle_ref, -170, 170);
         }
-        last_p=auto_rx_data.pitchAngleSet;
-        last_y=auto_rx_data.yawAngleSet;
+        last_p=gimbal_pitch;
+        last_y=gimbal_yaw;
 //    //计算pitch轴相对角度差
         pit_angle_fdb = pit_relative_angle;
 //    //计算yaw轴相对角度差

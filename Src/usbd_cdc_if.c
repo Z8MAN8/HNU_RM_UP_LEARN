@@ -25,6 +25,7 @@
 #include "Transmission.h"
 #include "math.h"
 #include "Gimbal.h"
+#include "crc.h"
 /* USER CODE END INCLUDE */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -267,13 +268,17 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
+  uint8_t sc = 0, ac = 0;
+//TODO
     if(*(uint16_t*)Buf=0xaaaa)
     {
-        memcpy(&auto_rx_data,Buf,sizeof(auto_rx_data));
+        memcpy(&upper_rx_data,Buf,sizeof(upper_rx_data));
         recv_flag=1;
-        if(isnanf(auto_rx_data.pitchAngleSet)|| isnanf(auto_rx_data.yawAngleSet))
+        sc = (uint8_t)Sumcheck_Cal(upper_rx_data) >> 8;
+        ac = (uint8_t)Sumcheck_Cal(upper_rx_data);
+        if(upper_rx_data.SC != sc || upper_rx_data.AC != ac)
         {
-            memset(&auto_rx_data, 0, sizeof(auto_rx_data));
+            memset(&upper_rx_data, 0, sizeof(upper_rx_data));
             recv_flag=0;
         }
     }

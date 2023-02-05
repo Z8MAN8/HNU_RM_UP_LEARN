@@ -10,7 +10,7 @@
 #include "usart.h"
 #include "bsp_can.h"
 
-
+BCPFrameTypeDef upper_rx_data;
 float testdata[4]={0};
 RecvFrameTypeDef auto_rx_data;
 //初始化自瞄发送帧
@@ -105,4 +105,26 @@ void Send_Communicate_data(CAN_HandleTypeDef *_hcan, uint8_t *data) {
     CAN_Send_Data[6] = data[6];
     CAN_Send_Data[7] = data[7];
     HAL_CAN_AddTxMessage(_hcan, &TX_MSG, CAN_Send_Data, &send_mail_box);
+}
+
+uint16_t Sumcheck_Cal(BCPFrameTypeDef frame){
+    uint8_t sumcheck = 0;
+    uint8_t addcheck = 0;
+    uint16_t allcheck = 0;
+
+    sumcheck += frame.HEAD;
+    addcheck += sumcheck;
+    sumcheck += frame.D_ADDR;
+    addcheck += sumcheck;
+    sumcheck += frame.ID;
+    addcheck += sumcheck;
+    sumcheck += frame.LEN;
+    addcheck += sumcheck;
+
+    for(int i = 0; i<FRAME_MAX_LEN; i++){
+        sumcheck += frame.DATA[i];
+        addcheck += sumcheck;
+    }
+    allcheck = (uint16_t)(sumcheck << 8 | addcheck);
+    return allcheck;
 }
