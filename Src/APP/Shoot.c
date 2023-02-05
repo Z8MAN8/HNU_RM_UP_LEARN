@@ -203,7 +203,7 @@ float ShootAndDelay(float speedInNumsPerSec, uint32_t numsOfOneShot, uint32_t de
 /* 子弹的单发和连发处理 */
 void Shoot_Custom_control(void){
     if (fric_wheel_run
-        &&shooter_output==1) {  //裁判系统对SHOOT没有供电时，不拨弹)
+       /* &&shooter_output==1*/) {  //裁判系统对SHOOT没有供电时，不拨弹)
 
         //HAL_GPIO_WritePin(GPIOE,GPIO_PIN_12,(GPIO_PinState)shoot_cmd);
         switch(shoot_state){

@@ -132,7 +132,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
                 //PE4置位
                 //GPIOE->BSRR=0x10;
                 moto_shoot[1].msg_cnt++ <= 50 ? Get_Moto_offset(&moto_shoot[1], rx_data) : \
-      Encoder_Data_handle(&moto_shoot[1], rx_data);
+                Encoder_Data_handle(&moto_shoot[1], rx_data);
                 Err_Detector_hook(AMMO_BOOSTER2_OFFLINE);
 
 
