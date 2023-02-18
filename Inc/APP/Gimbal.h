@@ -9,6 +9,8 @@
 #include "stm32f4xx_hal.h"
 #include "bsp_uart.h"
 #include "stdint.h"
+#include "stdint.h"
+#include "Ins.h"
 
 /* 云台控制周期 (ms) */
 #define GIMBAL_PERIOD 1
@@ -268,7 +270,7 @@ extern float yaw_angle_ref;
 extern float pit_angle_ref;
 extern float yaw_angle_fdb;
 extern float pit_angle_fdb;
-
+extern ImuTypeDef imu;    //储存IMU传感器相关的数据
 
 extern bool_t recv_flag;    //虚拟串口接收标志位
 extern float angle_history[50];    //存放25帧历史姿态数据

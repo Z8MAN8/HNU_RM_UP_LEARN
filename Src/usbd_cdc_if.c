@@ -113,7 +113,9 @@ uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 extern USBD_HandleTypeDef hUsbDeviceFS;
 
 /* USER CODE BEGIN EXPORTED_VARIABLES */
-
+//TEST DATA
+float gimbal_yaw_test = 0;
+float gimbal_pitch_test = 0;
 /* USER CODE END EXPORTED_VARIABLES */
 
 /**
@@ -269,18 +271,38 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
   uint8_t sc = 0, ac = 0;
-//TODO
+//TODO: 考虑不同帧长的情况
     if(*(uint16_t*)Buf=0xaaaa)
     {
         memcpy(&upper_rx_data,Buf,sizeof(upper_rx_data));
         recv_flag=1;
-        sc = (uint8_t)Sumcheck_Cal(upper_rx_data) >> 8;
-        ac = (uint8_t)Sumcheck_Cal(upper_rx_data);
-        if(upper_rx_data.SC != sc || upper_rx_data.AC != ac)
-        {
-            memset(&upper_rx_data, 0, sizeof(upper_rx_data));
-            recv_flag=0;
+
+        switch (upper_rx_data.ID) {
+            case GIMBAL:{
+                memcpy(&rpy_rx_data,&upper_rx_data,sizeof(rpy_rx_data));
+                sc = (uint8_t)Sumcheck_Cal(upper_rx_data) >> 8;
+                ac = (uint8_t)Sumcheck_Cal(upper_rx_data);
+                /* TEST START */
+
+                if (rpy_rx_data.DATA[0]) {     //相对角度控制
+                    gimbal_yaw_test = (int32_t) (rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
+                                                 | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1]) / 1000;
+                    gimbal_pitch_test = (int32_t) (rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
+                                                   | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5]) / 1000;
+                }
+
+                /* TEST STOP */
+                if(upper_rx_data.SC != sc || upper_rx_data.AC != ac)
+                {
+                    memset(&rpy_rx_data, 0, sizeof(rpy_rx_data));
+                    recv_flag=0;
+                }
+            }break;
+            default:{
+                recv_flag=0;
+            }break;
         }
+        memset(&upper_rx_data, 0, sizeof(upper_rx_data));
     }
 
   return (USBD_OK);

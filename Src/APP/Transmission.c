@@ -11,6 +11,10 @@
 #include "bsp_can.h"
 
 BCPFrameTypeDef upper_rx_data;
+BCPFrameTypeDef upper_tx_all_data[FRAME_NUM];
+BCPFrameTypeDef upper_tx_data;
+BCPRpyTypeDef rpy_rx_data;
+BCPRpyTypeDef rpy_tx_data;
 float testdata[4]={0};
 RecvFrameTypeDef auto_rx_data;
 //初始化自瞄发送帧
@@ -33,14 +37,18 @@ extern volatile float yaw_angle_ref_v;
 
 void transmission_task(void const * argument)
 {
+    int8_t rpy_tx_buffer[FRAME_RPY_LEN] = {0} ;
+    int32_t rpy_data = 0;
+    uint32_t *gimbal_rpy = (uint32_t *)&rpy_data;
+
     __HAL_UART_ENABLE_IT(&huart1,UART_IT_RXNE);
     uint32_t transmission_wake_time = osKernelSysTick();
 
     while (1)
     {
         /*给下板发送数据*/
-        Get_Communicate_data(cm_data);
-        Send_Communicate_data(&COM_CAN, cm_data);
+        Get_Communicate_data(cm_data, CAN_RPY_TX);
+        Send_Communicate_data(&COM_CAN, cm_data, CAN_RPY_TX);
 
         auto_tx_data.pitchAngleGet=pit_angle_fdb;
         auto_tx_data.yawAngleGet=yaw_angle_fdb;
@@ -48,6 +56,27 @@ void transmission_task(void const * argument)
         testdata[0]=-AHRS.Pitch;
         testdata[1]=-AHRS.Roll;
         testdata[2]=-AHRS.Yaw;
+
+        /* USB发送imu帧 */
+        rpy_tx_buffer[0] = 0;
+        rpy_data = (imu.angle_x- gim.yaw_offset_angle) * 1000;
+        rpy_tx_buffer[1] = *gimbal_rpy;
+        rpy_tx_buffer[2] = *gimbal_rpy >> 8;
+        rpy_tx_buffer[3] = *gimbal_rpy >> 16;
+        rpy_tx_buffer[4] = *gimbal_rpy >> 24;
+        rpy_data = (imu.angle_y-gim.pit_offset_angle) * 1000;
+        rpy_tx_buffer[5] = *gimbal_rpy;
+        rpy_tx_buffer[6] = *gimbal_rpy >> 8;
+        rpy_tx_buffer[7] = *gimbal_rpy >> 16;
+        rpy_tx_buffer[8] = *gimbal_rpy >> 24;
+        rpy_data = imu.angle_z * 1000;
+        rpy_tx_buffer[9] = *gimbal_rpy;
+        rpy_tx_buffer[10] = *gimbal_rpy >> 8;
+        rpy_tx_buffer[11] = *gimbal_rpy >> 16;
+        rpy_tx_buffer[12] = *gimbal_rpy >> 24;
+
+        Add_Frame_To_Upper(GIMBAL, rpy_tx_buffer);
+        CDC_Transmit_FS((uint8_t*)&rpy_tx_data, sizeof(rpy_tx_data));
 
         osDelayUntil(&transmission_wake_time, 1);
     }
@@ -70,29 +99,35 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     }
 }
 
-void Get_Communicate_data(uint8_t* data){
-    //c不支持浮点数移位操作，因为浮点数储存和整数储存不同
-    //这里将浮点数转化为整型数进行移位(不是强制类型转换，是将这个储存空间的内存的解释规则转化为整形
-    uint32_t *yaw_angle = (uint32_t *)&yaw_relative_angle;
-    uint32_t *yaw_ref_v = (uint32_t *)&yaw_angle_ref_v;
-    //第一位用于判断是否唤醒底盘
-    data[3] = *yaw_angle >> 24;
-    data[2] = *yaw_angle >> 16;
-    data[1] = *yaw_angle >> 8;
-    data[0] = *yaw_angle;
-    data[7] = *yaw_ref_v >> 24;
-    data[6] = *yaw_ref_v >> 16;
-    data[5] = *yaw_ref_v >> 8;
-    data[4] = *yaw_ref_v;
+void Get_Communicate_data(uint8_t* data, uint16_t send_type){
+    switch (send_type) {
+        case CAN_RPY_TX: {
+            //c不支持浮点数移位操作，因为浮点数储存和整数储存不同
+            //这里将浮点数转化为整型数进行移位(不是强制类型转换，是将这个储存空间的内存的解释规则转化为整形
+            uint32_t *yaw_angle = (uint32_t *)&yaw_relative_angle;
+            uint32_t *yaw_ref_v = (uint32_t *)&yaw_angle_ref_v;
+            //第一位用于判断是否唤醒底盘
+            data[3] = *yaw_angle >> 24;
+            data[2] = *yaw_angle >> 16;
+            data[1] = *yaw_angle >> 8;
+            data[0] = *yaw_angle;
+            data[7] = *yaw_ref_v >> 24;
+            data[6] = *yaw_ref_v >> 16;
+            data[5] = *yaw_ref_v >> 8;
+            data[4] = *yaw_ref_v;
+        }break;
+        default: break;
+    }
 }
 
-void Send_Communicate_data(CAN_HandleTypeDef *_hcan, uint8_t *data) {
+void Send_Communicate_data(CAN_HandleTypeDef *_hcan, uint8_t *data, uint16_t send_type) {
     static CAN_TxHeaderTypeDef TX_MSG;
     static uint8_t CAN_Send_Data[8];
     uint32_t send_mail_box;
 
     TX_MSG.StdId = CAN_UP_TX_INFO;
-    TX_MSG.IDE = CAN_ID_STD;
+    TX_MSG.IDE = CAN_ID_EXT;            /* 上下板通讯使用扩展帧 */
+    TX_MSG.ExtId = send_type;
     TX_MSG.RTR = CAN_RTR_DATA;
     TX_MSG.DLC = 0x08;
     TX_MSG.TransmitGlobalTime = DISABLE;
@@ -107,6 +142,26 @@ void Send_Communicate_data(CAN_HandleTypeDef *_hcan, uint8_t *data) {
     HAL_CAN_AddTxMessage(_hcan, &TX_MSG, CAN_Send_Data, &send_mail_box);
 }
 
+void Add_Frame_To_Upper(uint16_t send_mode, int8_t* data_buf){
+    switch (send_mode) {
+        case GIMBAL:{
+            rpy_tx_data.HEAD = 0XFF;
+            rpy_tx_data.D_ADDR = MAINFLOD;
+            rpy_tx_data.ID = GIMBAL;
+            rpy_tx_data.LEN = FRAME_RPY_LEN;
+            memcpy(&rpy_tx_data.DATA, data_buf, sizeof(rpy_tx_data.DATA));
+
+            /* 将 odom 帧先转存到中转帧中做数据校验计算 */
+            memcpy(&upper_tx_data, &rpy_tx_data, sizeof(rpy_tx_data));
+            rpy_tx_data.SC = (uint8_t)Sumcheck_Cal(upper_tx_data) >> 8;
+            rpy_tx_data.AC = (uint8_t)Sumcheck_Cal(upper_tx_data);
+            memset(&upper_tx_data, 0, sizeof(upper_tx_data));
+        }break;
+        default:break;
+    }
+}
+
+//TODO: 校验结果不对
 uint16_t Sumcheck_Cal(BCPFrameTypeDef frame){
     uint8_t sumcheck = 0;
     uint8_t addcheck = 0;
@@ -121,7 +176,7 @@ uint16_t Sumcheck_Cal(BCPFrameTypeDef frame){
     sumcheck += frame.LEN;
     addcheck += sumcheck;
 
-    for(int i = 0; i<FRAME_MAX_LEN; i++){
+    for(int i = 0; i<frame.LEN; i++){
         sumcheck += frame.DATA[i];
         addcheck += sumcheck;
     }

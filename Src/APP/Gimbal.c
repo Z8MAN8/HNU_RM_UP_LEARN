@@ -4,7 +4,6 @@
 
 #include "Gimbal.h"
 #include <stdbool.h>
-#include <Ins.h>
 #include "controller.h"
 #include "bsp_can.h"
 #include "bsp_uart.h"
@@ -55,7 +54,6 @@ static _Bool manual_pid_flag = 1;
 float angle_history[50];
 
 
-
 void gimbal_task(void const * argument){
     /*初始化云台控制参数*/
     Gimbal_Init_param();
@@ -87,6 +85,8 @@ void gimbal_task(void const * argument){
         if(gim.ctrl_mode!=GIMBAL_RELAX){
         Gimbal_Control_moto();
         }
+
+
 
         /*绝对延时，保证Gimbal_TASK固定周期运行*/
         osDelayUntil(&Gimbal_Wake_time, GIMBAL_PERIOD);
@@ -266,12 +266,12 @@ void Gimbal_Auto_control(void){
 
 //	HAL_GPIO_TogglePin(GPIOG,GPIO_PIN_2);
 //TODO:
-        if(upper_rx_data.ID == 0x20 && recv_flag) {  //欧拉角rpy方式控制
-            if (upper_rx_data.DATA[0]){     //相对角度控
-                gimbal_yaw = (int32_t)(upper_rx_data.DATA[4] << 24 | upper_rx_data.DATA[3] << 16
-                        | upper_rx_data.DATA[2] << 8 | upper_rx_data.DATA[1])/1000;
-                gimbal_pitch = (int32_t)(upper_rx_data.DATA[8] << 24 | upper_rx_data.DATA[7] << 16
-                                       | upper_rx_data.DATA[6] << 8 | upper_rx_data.DATA[5])/1000;
+        if(recv_flag) {  //欧拉角rpy方式控制
+            if (rpy_rx_data.DATA[0]){     //相对角度控制
+                gimbal_yaw = (int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
+                        | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000;
+                gimbal_pitch = (int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
+                                       | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000;
             }
             pit_angle_ref = gimbal_pitch * 0.7f + last_p * 0.3f;
             yaw_angle_ref = gimbal_yaw + manual_offset;
