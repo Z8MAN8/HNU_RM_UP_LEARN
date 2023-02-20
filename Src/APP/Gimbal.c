@@ -241,6 +241,8 @@ void Gimbal_Control_pitch(void){
 void Gimbal_Auto_control(void){
     float gimbal_yaw;
     float gimbal_pitch;  //解析上位机发送的云台角度
+//    static bool_t com_protect = 1; //为1时一帧数据处理完毕、
+    BCPRpyTypeDef rpy_rx_data_buffer;  //接收欧拉角方式控制数据缓冲帧
 
     /*自瞄模式中与普通模式的相互切换*/
     if(rc.sw2==RC_UP){
@@ -267,11 +269,18 @@ void Gimbal_Auto_control(void){
 //	HAL_GPIO_TogglePin(GPIOG,GPIO_PIN_2);
 //TODO:
         if(recv_flag) {  //欧拉角rpy方式控制
-            if (rpy_rx_data.DATA[0]){     //相对角度控制
-                gimbal_yaw = (int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
-                        | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000;
-                gimbal_pitch = (int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
-                                       | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000;
+            rpy_rx_data_buffer = rpy_rx_data;
+            if (!rpy_rx_data_buffer.DATA[0]){     //绝对角度控制
+                gimbal_yaw = (int32_t)(rpy_rx_data_buffer.DATA[4] << 24 | rpy_rx_data_buffer.DATA[3] << 16
+                        | rpy_rx_data_buffer.DATA[2] << 8 | rpy_rx_data_buffer.DATA[1])/1000;
+                gimbal_pitch = (int32_t)(rpy_rx_data_buffer.DATA[8] << 24 | rpy_rx_data_buffer.DATA[7] << 16
+                                       | rpy_rx_data_buffer.DATA[6] << 8 | rpy_rx_data_buffer.DATA[5])/1000;
+            }
+            else if(rpy_rx_data_buffer.DATA[0]){     //相对角度控制
+                gimbal_yaw = ((int32_t)(rpy_rx_data_buffer.DATA[4] << 24 | rpy_rx_data_buffer.DATA[3] << 16
+                                       | rpy_rx_data_buffer.DATA[2] << 8 | rpy_rx_data_buffer.DATA[1])/1000) + pit_relative_angle;
+                gimbal_pitch = ((int32_t)(rpy_rx_data_buffer.DATA[8] << 24 | rpy_rx_data_buffer.DATA[7] << 16
+                                         | rpy_rx_data_buffer.DATA[6] << 8 | rpy_rx_data_buffer.DATA[5])/1000) + yaw_relative_angle;
             }
             pit_angle_ref = gimbal_pitch * 0.7f + last_p * 0.3f;
             yaw_angle_ref = gimbal_yaw + manual_offset;
