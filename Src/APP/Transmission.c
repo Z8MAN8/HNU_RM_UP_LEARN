@@ -34,6 +34,8 @@ SendFrameTypeDef auto_tx_data =
 static uint8_t cm_data[8] = {0};
 extern volatile float yaw_angle_ref_v;
 
+extern uint8_t USB_SEND_OK;
+
 
 void transmission_task(void const * argument)
 {

@@ -116,6 +116,7 @@ extern USBD_HandleTypeDef hUsbDeviceFS;
 //TEST DATA
 float gimbal_yaw_test = 0;
 float gimbal_pitch_test = 0;
+uint8_t USB_SEND_OK = 0;
 /* USER CODE END EXPORTED_VARIABLES */
 
 /**
@@ -280,23 +281,33 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
         switch (upper_rx_data.ID) {
             case GIMBAL:{
                 memcpy(&rpy_rx_data,&upper_rx_data,sizeof(rpy_rx_data));
-                sc = (uint8_t)Sumcheck_Cal(upper_rx_data) >> 8;
-                ac = (uint8_t)Sumcheck_Cal(upper_rx_data);
+                /*sc = (uint8_t)Sumcheck_Cal(upper_rx_data) >> 8;
+                ac = (uint8_t)Sumcheck_Cal(upper_rx_data);*/\
+
                 /* TEST START */
 
                 if (rpy_rx_data.DATA[0]) {     //相对角度控制
-                    gimbal_yaw_test = (int32_t) (rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
-                                                 | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1]) / 1000;
-                    gimbal_pitch_test = (int32_t) (rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
-                                                   | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5]) / 1000;
+                    gimbal_yaw_test = *(int32_t*)&rpy_rx_data.DATA[1] / 1000;/*
+                            (int32_t) (rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
+                                                 | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1]) / 1000;*/
+                    gimbal_pitch_test = *(int32_t*)&rpy_rx_data.DATA[5] / 1000;/*
+                            (int32_t) (rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
+                                                   | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5]) / 1000;*/
                 }
 
                 /* TEST STOP */
-                if(upper_rx_data.SC != sc || upper_rx_data.AC != ac)
+
+                if(rc.sw2 != RC_MI)
                 {
                     memset(&rpy_rx_data, 0, sizeof(rpy_rx_data));
                     recv_flag=0;
                 }
+
+                /*if(upper_rx_data.SC != sc || upper_rx_data.AC != ac)
+                {
+                    memset(&rpy_rx_data, 0, sizeof(rpy_rx_data));
+                    recv_flag=0;
+                }*/
             }break;
             default:{
                 recv_flag=0;
@@ -353,6 +364,7 @@ static int8_t CDC_TransmitCplt_FS(uint8_t *Buf, uint32_t *Len, uint8_t epnum)
   UNUSED(Buf);
   UNUSED(Len);
   UNUSED(epnum);
+  USB_SEND_OK = 1;
   /* USER CODE END 13 */
   return result;
 }

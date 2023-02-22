@@ -168,8 +168,8 @@ typedef struct
     uint32_t no_action_time; //无控制信号时间
 
     float ecd_offset_angle;  //云台初始编码器值
-    float yaw_offset_angle;  //云台初始 yaw 轴角度
-    float pit_offset_angle;  //云台初始 pit 轴角度
+    float yaw_offset_angle;  //云台初始 yaw 轴角度 （由imu得）
+    float pit_offset_angle;  //云台初始 pit 轴角度 （由imu得）
 } GimbalYawTypeDef;
 
 
@@ -261,7 +261,7 @@ void PID_Reset_auto(void);
 
 extern GimbalYawTypeDef gim;
 
-/* 云台相对角度,unit: degree*/
+/* 云台相对（相对于归中值）角度,unit: degree （由电机编码器得）*/
 extern volatile float yaw_relative_angle;
 extern float pit_relative_angle;
 

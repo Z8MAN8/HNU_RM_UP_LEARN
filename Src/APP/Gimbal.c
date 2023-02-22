@@ -83,7 +83,7 @@ void gimbal_task(void const * argument){
             }break;
         }
         if(gim.ctrl_mode!=GIMBAL_RELAX){
-        Gimbal_Control_moto();
+            Gimbal_Control_moto();
         }
 
 
@@ -111,18 +111,18 @@ void Gimbal_Get_information(void){
 
 
 void Gimbal_Get_mode(void){
-   /* gim.ac_mode = Remote_Is_action();
-    gim.last_mode = gim.ctrl_mode;*/
-   if(   glb_err.err_list[REMOTE_CTRL_OFFLINE].err_exist //遥控器离线
-      || glb_err.err_list[GIMBAL_YAW_OFFLINE].err_exist  //yaw轴电机离线
-      || glb_err.err_list[GIMBAL_PIT_OFFLINE].err_exist//pitch轴电机离线
-      || rc.sw2 ==RC_DN){/*如果有模块离线或右侧拨杆值在DN时，则云台为GIMBAL_RELAX模式*/
-       gim.ctrl_mode = GIMBAL_RELAX;
-   }
+    /* gim.ac_mode = Remote_Is_action();
+     gim.last_mode = gim.ctrl_mode;*/
+    if(   glb_err.err_list[REMOTE_CTRL_OFFLINE].err_exist //遥控器离线
+          || glb_err.err_list[GIMBAL_YAW_OFFLINE].err_exist  //yaw轴电机离线
+          || glb_err.err_list[GIMBAL_PIT_OFFLINE].err_exist//pitch轴电机离线
+          || rc.sw2 ==RC_DN){/*如果有模块离线或右侧拨杆值在DN时，则云台为GIMBAL_RELAX模式*/
+        gim.ctrl_mode = GIMBAL_RELAX;
+    }
 
-   else if(gim.ctrl_mode == GIMBAL_RELAX){
-       gim.ctrl_mode = GIMBAL_INIT;
-   }
+    else if(gim.ctrl_mode == GIMBAL_RELAX){
+        gim.ctrl_mode = GIMBAL_INIT;
+    }
 
     gim.last_mode = gim.ctrl_mode;
 }
@@ -201,7 +201,7 @@ void Gimbal_Loop_handle(){
     if(rc.sw2==RC_MI||rc.mouse.r==1){
         gim.ctrl_mode = GIMBAL_AUTO;
     }
-    /*切换完毕，进入普通模式的控制*/
+        /*切换完毕，进入普通模式的控制*/
     else{
         if(manual_pid_flag == 0){
             PID_Reset_manual();
@@ -209,7 +209,7 @@ void Gimbal_Loop_handle(){
             auto_pid_flag = 0;
         }
 
-        pit_angle_fdb = imu.angle_y-gim.pit_offset_angle;
+        pit_angle_fdb = imu.angle_y - gim.pit_offset_angle;
         yaw_angle_fdb = imu.angle_x - gim.yaw_offset_angle;
 
         Gimbal_Control_yaw();
@@ -239,10 +239,9 @@ void Gimbal_Control_pitch(void){
 
 
 void Gimbal_Auto_control(void){
-    float gimbal_yaw;
-    float gimbal_pitch;  //解析上位机发送的云台角度
-//    static bool_t com_protect = 1; //为1时一帧数据处理完毕、
-    BCPRpyTypeDef rpy_rx_data_buffer;  //接收欧拉角方式控制数据缓冲帧
+    float gimbal_yaw = 0;
+    float gimbal_pitch = 0;  //解析上位机发送的云台角度
+//    static bool_t com_protect = 1; //为1时一帧数据处理完毕
 
     /*自瞄模式中与普通模式的相互切换*/
     if(rc.sw2==RC_UP){
@@ -269,21 +268,27 @@ void Gimbal_Auto_control(void){
 //	HAL_GPIO_TogglePin(GPIOG,GPIO_PIN_2);
 //TODO:
         if(recv_flag) {  //欧拉角rpy方式控制
-            rpy_rx_data_buffer = rpy_rx_data;
-            if (!rpy_rx_data_buffer.DATA[0]){     //绝对角度控制
-                gimbal_yaw = (int32_t)(rpy_rx_data_buffer.DATA[4] << 24 | rpy_rx_data_buffer.DATA[3] << 16
-                        | rpy_rx_data_buffer.DATA[2] << 8 | rpy_rx_data_buffer.DATA[1])/1000;
-                gimbal_pitch = (int32_t)(rpy_rx_data_buffer.DATA[8] << 24 | rpy_rx_data_buffer.DATA[7] << 16
-                                       | rpy_rx_data_buffer.DATA[6] << 8 | rpy_rx_data_buffer.DATA[5])/1000;
+            if (!rpy_rx_data.DATA[0]){     //绝对角度控制
+                gimbal_yaw = *(int32_t*)&rpy_rx_data.DATA[1] / 1000;
+                        /*(int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
+                                       | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000;*/
+                gimbal_pitch = *(int32_t*)&rpy_rx_data.DATA[5] / 1000;
+                        /*(int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
+                                         | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000;*/
             }
-            else if(rpy_rx_data_buffer.DATA[0]){     //相对角度控制
-                gimbal_yaw = ((int32_t)(rpy_rx_data_buffer.DATA[4] << 24 | rpy_rx_data_buffer.DATA[3] << 16
-                                       | rpy_rx_data_buffer.DATA[2] << 8 | rpy_rx_data_buffer.DATA[1])/1000) + pit_relative_angle;
-                gimbal_pitch = ((int32_t)(rpy_rx_data_buffer.DATA[8] << 24 | rpy_rx_data_buffer.DATA[7] << 16
-                                         | rpy_rx_data_buffer.DATA[6] << 8 | rpy_rx_data_buffer.DATA[5])/1000) + yaw_relative_angle;
+            else{     //相对角度控制
+                gimbal_yaw = (*(int32_t*)&rpy_rx_data.DATA[1] / 1000) + pit_angle_fdb;
+                        /*((int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
+                                        | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000) + pit_angle_fdb;*/
+                gimbal_pitch = (*(int32_t*)&rpy_rx_data.DATA[5] / 1000) + yaw_angle_fdb;
+                        /*((int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
+                                          | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000) + yaw_angle_fdb;*/
             }
             pit_angle_ref = gimbal_pitch * 0.7f + last_p * 0.3f;
             yaw_angle_ref = gimbal_yaw + manual_offset;
+            last_p = gimbal_pitch;
+            last_y = gimbal_yaw;
+            recv_flag = 0;
         }
         //遥控器微调
 //    gimbal_yaw_control();
@@ -297,8 +302,7 @@ void Gimbal_Auto_control(void){
         if ((yaw_angle_ref >= 170) && (yaw_angle_ref <= -170)){
             VAL_LIMIT(yaw_angle_ref, -170, 170);
         }
-        last_p=gimbal_pitch;
-        last_y=gimbal_yaw;
+
 //    //计算pitch轴相对角度差
         pit_angle_fdb = pit_relative_angle;
 //    //计算yaw轴相对角度差
@@ -306,6 +310,9 @@ void Gimbal_Auto_control(void){
         //尝试在自瞄时也使用IMU
 //    pit_angle_fdb = imu.angle_y-gim.pit_offset_angle;
         yaw_angle_fdb = imu.angle_x - gim.yaw_offset_angle;
+
+        /*gimbal_pitch = 0;
+        gimbal_yaw = 0;*/
     }
 
 }
