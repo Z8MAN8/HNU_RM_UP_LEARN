@@ -241,6 +241,7 @@ void Gimbal_Control_pitch(void){
 void Gimbal_Auto_control(void){
     float gimbal_yaw = 0;
     float gimbal_pitch = 0;  //解析上位机发送的云台角度
+    float target_distance = 0; //与识别目标的距离
 //    static bool_t com_protect = 1; //为1时一帧数据处理完毕
 
     /*自瞄模式中与普通模式的相互切换*/
@@ -288,6 +289,7 @@ void Gimbal_Auto_control(void){
             yaw_angle_ref = gimbal_yaw + manual_offset;
             last_p = gimbal_pitch;
             last_y = gimbal_yaw;
+            target_distance = *(int32_t*)&rpy_rx_data.DATA[13] / 1000;  //获取目标距离
             recv_flag = 0;
         }
         //遥控器微调

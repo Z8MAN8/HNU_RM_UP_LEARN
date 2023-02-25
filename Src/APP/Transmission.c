@@ -43,6 +43,10 @@ void transmission_task(void const * argument)
     int32_t rpy_data = 0;
     uint32_t *gimbal_rpy = (uint32_t *)&rpy_data;
 
+    int8_t imu_tx_buffer[FRAME_IMU_LEN] = {0} ;
+    int32_t imu_data = 0;
+    uint32_t *gimbal_imu = (uint32_t *)&imu_data;
+
     __HAL_UART_ENABLE_IT(&huart1,UART_IT_RXNE);
     uint32_t transmission_wake_time = osKernelSysTick();
 
@@ -59,7 +63,7 @@ void transmission_task(void const * argument)
         testdata[1]=-AHRS.Roll;
         testdata[2]=-AHRS.Yaw;
 
-        /* USB∑¢ÀÕimu÷° */
+        /* USB∑¢ÀÕΩ«∂»÷° */
         rpy_tx_buffer[0] = 0;
         rpy_data = (imu.angle_x- gim.yaw_offset_angle) * 1000;
         rpy_tx_buffer[1] = *gimbal_rpy;

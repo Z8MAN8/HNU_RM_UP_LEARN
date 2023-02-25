@@ -27,7 +27,7 @@
 //TODO: 考虑不同帧长的情况
 #define FRAME_NUM     10        /* 所有通讯帧的类型总数 */
 #define FRAME_MAX_LEN 36        /* 通讯帧的最大长度 */
-#define FRAME_RPY_LEN 13        /* 欧拉角rpy方式控制长度 */
+#define FRAME_RPY_LEN 17        /* 欧拉角rpy方式控制长度 */
 #define FRAME_ODOM_LEN 36       /* 里程计控制方式长度 */
 #define FRAME_IMU_LEN 24        /* imu控制方式长度 */
 #define FRAME_CTRL_LEN 24       /* 角/线速度控制方式长度 */
@@ -47,8 +47,8 @@
 #define CHASSIS                 0x10        /* 速度方式控制 */
 #define CHASSIS_ODOM            0x11        /* 里程计方式控制 */
 #define CHASSIS_CTRL            0x12        /* 角/线速度方式控制 */
+#define CHASSIS_IMU             0x13        /* 底盘imu数据 */
 #define GIMBAL                  0x20        /* 欧拉角rpy方式控制 */
-#define CHASSIS_IMU             0x21        /* 底盘imu数据 */
 #define GAME_STATUS             0x30        /* 比赛类型数据*/
 #define ROBOT_HP                0x31        /* 机器人血量数据 */
 #define ICRA_BUFF_DEBUFF_ZONE   0x32        /* 增益区数据 */
@@ -119,12 +119,28 @@ typedef  struct
     uint8_t AC;                     /*! 附加校验 */
 }__attribute__((packed)) BCPRpyTypeDef;
 
+/**
+  * @brief  imu方式控制通讯帧结构体
+  */
+typedef  struct
+{
+    uint8_t HEAD;  				    /*! 帧头 */
+    uint8_t D_ADDR;                 /*! 目标地址 */
+    uint8_t ID;                     /*! 功能码 */
+    uint8_t LEN;                    /*! 数据长度 */
+    int8_t DATA[FRAME_IMU_LEN];    /*! 数据内容 */
+    uint8_t SC;                     /*! 和校验 */
+    uint8_t AC;                     /*! 附加校验 */
+}__attribute__((packed)) BCPImuTypeDef;
+
 extern BCPFrameTypeDef upper_rx_data;       //接收上位机数据中转帧
 extern BCPFrameTypeDef upper_tx_data;       //发送上位机数据中转帧
 extern BCPFrameTypeDef upper_tx_all_data[FRAME_NUM];       //合并发送上位机数据帧
 
 extern BCPRpyTypeDef rpy_rx_data;  //接收欧拉角方式控制数据帧
 extern BCPRpyTypeDef rpy_tx_data;  //发送欧拉角方式控制数据帧
+
+extern BCPImuTypeDef imu_tx_data;           //发送imu方式控制数据帧
 
 extern RecvFrameTypeDef auto_rx_data;
 extern SendFrameTypeDef auto_tx_data;
