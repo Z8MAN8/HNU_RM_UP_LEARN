@@ -53,7 +53,7 @@ void ins_task(void const * argument)
 
     IMU_QuaternionEKF_Init(10, 0.001, 1000000 * 10, 0.9996 * 0 + 1, 0);
     // imu heat init
-    PID_Init(&TempCtrl, 2000, 300, 0, 1000, 20, 0, 0, 0, 0, 0, 0, 0);
+    PID_Init(&TempCtrl, 1100, 10, 0, 210, 2, 0, 0, 0, 0, 0, 0, 0);
     HAL_TIM_PWM_Start(&htim10, TIM_CHANNEL_1);
     uint32_t ins_wake_time = osKernelSysTick();
     /* Infinite loop */
