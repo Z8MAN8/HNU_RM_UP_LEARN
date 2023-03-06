@@ -65,12 +65,12 @@ void transmission_task(void const * argument)
 
         /* USB·¢ËÍ½Ç¶ÈÖ¡ */
         rpy_tx_buffer[0] = 0;
-        rpy_data = (imu.angle_x- gim.yaw_offset_angle) * 1000;
+        rpy_data = (int)((imu.angle_x- gim.yaw_offset_angle) * 1000 ) %1;
         rpy_tx_buffer[1] = *gimbal_rpy;
         rpy_tx_buffer[2] = *gimbal_rpy >> 8;
         rpy_tx_buffer[3] = *gimbal_rpy >> 16;
         rpy_tx_buffer[4] = *gimbal_rpy >> 24;
-        rpy_data = (imu.angle_y-gim.pit_offset_angle) * 1000;
+        rpy_data = (int)((imu.angle_y-gim.pit_offset_angle) * 1000 )% 1;
         rpy_tx_buffer[5] = *gimbal_rpy;
         rpy_tx_buffer[6] = *gimbal_rpy >> 8;
         rpy_tx_buffer[7] = *gimbal_rpy >> 16;

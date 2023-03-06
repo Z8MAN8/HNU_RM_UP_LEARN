@@ -9,9 +9,24 @@
 #include "bsp_uart.h"
 #include "Detect.h"
 #include "ramp.h"
-
+#include "kalman.h"
 #include "keyboard.h"
 
+//float yaw_a_kp = 30;
+//float yaw_a_ki = 200;
+//float yaw_a_kd = 0.001;
+//float pitch_a_kp = 90;
+//float pitch_a_ki = 180;
+//float pitch_a_kd = 1;
+float yaw_a_kp = 30;
+float yaw_a_ki = 200;
+float yaw_a_kd = 0.001;
+float pitch_a_kp = 90;
+float pitch_a_ki = 180;
+float pitch_a_kd = 1;
+
+static float gimbal_yaw = 0;
+static float gimbal_pitch = 0;  //解析上位机发送的云台角度
 //TODO:考虑将noaction处理函数和飞坡前的对准操作合在一起
 
 ImuTypeDef imu;    //储存IMU传感器相关的数据
@@ -52,14 +67,17 @@ static _Bool manual_pid_flag = 1;
 
 //存放25帧历史姿态数据
 float angle_history[50];
-
+Kalman kfp_pitch;
+Kalman kfp_yaw;
+//Kalman kfp_pitch;
+//Kalman kfp_yaw;
 
 void gimbal_task(void const * argument){
     /*初始化云台控制参数*/
     Gimbal_Init_param();
     /*获取PreviousWakeTime*/
     uint32_t Gimbal_Wake_time = osKernelSysTick();
-
+    Kalman_Init();
     while (1){
         /*获取云台传感器及控制信息*/
         Gimbal_Get_information();
@@ -197,6 +215,24 @@ void Gimbal_Init_handle(void){
 
 /*云台跟随编码器闭环控制处理函数*/
 void Gimbal_Loop_handle(){
+    if(recv_flag) {  //欧拉角rpy方式控制
+        if (!rpy_rx_data.DATA[0]){     //绝对角度控制
+            gimbal_yaw = *(int32_t*)&rpy_rx_data.DATA[1] / 1000.0;
+            /*(int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
+                           | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000;*/
+            gimbal_pitch = *(int32_t*)&rpy_rx_data.DATA[5] / 1000.0;
+            /*(int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
+                             | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000;*/
+        }
+        else{     //相对角度控制
+            gimbal_yaw = (*(int32_t*)&rpy_rx_data.DATA[1] / 1000.0) + pit_angle_fdb;
+            /*((int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
+                            | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000) + pit_angle_fdb;*/
+            gimbal_pitch = (*(int32_t*)&rpy_rx_data.DATA[5] / 1000.0) + yaw_angle_fdb;
+            /*((int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
+                              | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000) + yaw_angle_fdb;*/
+        }
+    }
     /*普通模式中与自瞄模式的相互切换*/
     if(rc.sw2==RC_MI||rc.mouse.r==1){
         gim.ctrl_mode = GIMBAL_AUTO;
@@ -239,14 +275,19 @@ void Gimbal_Control_pitch(void){
 
 
 void Gimbal_Auto_control(void){
-    float gimbal_yaw = 0;
-    float gimbal_pitch = 0;  //解析上位机发送的云台角度
+//    static float gimbal_yaw = 0;
+//    static float gimbal_pitch = 0;  //解析上位机发送的云台角度
+
+
     float target_distance = 0; //与识别目标的距离
 //    static bool_t com_protect = 1; //为1时一帧数据处理完毕
+
+
 
     /*自瞄模式中与普通模式的相互切换*/
     if(rc.sw2==RC_UP){
         gim.ctrl_mode=GIMBAL_CLOSE_LOOP_ZGYRO;
+
     }
     /*切换完毕，进入自瞄模式的控制*/
     else{
@@ -270,27 +311,35 @@ void Gimbal_Auto_control(void){
 //TODO:
         if(recv_flag) {  //欧拉角rpy方式控制
             if (!rpy_rx_data.DATA[0]){     //绝对角度控制
-                gimbal_yaw = *(int32_t*)&rpy_rx_data.DATA[1] / 1000;
+                gimbal_yaw = *(int32_t*)&rpy_rx_data.DATA[1] / 1000.0;
                         /*(int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
                                        | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000;*/
-                gimbal_pitch = *(int32_t*)&rpy_rx_data.DATA[5] / 1000;
+                gimbal_pitch = *(int32_t*)&rpy_rx_data.DATA[5] / 1000.0;
                         /*(int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
                                          | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000;*/
             }
             else{     //相对角度控制
-                gimbal_yaw = (*(int32_t*)&rpy_rx_data.DATA[1] / 1000) + pit_angle_fdb;
+                gimbal_yaw = (*(int32_t*)&rpy_rx_data.DATA[1] / 1000.0) + pit_angle_fdb;
                         /*((int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
                                         | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000) + pit_angle_fdb;*/
-                gimbal_pitch = (*(int32_t*)&rpy_rx_data.DATA[5] / 1000) + yaw_angle_fdb;
+                gimbal_pitch = (*(int32_t*)&rpy_rx_data.DATA[5] / 1000.0) + yaw_angle_fdb;
                         /*((int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
                                           | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000) + yaw_angle_fdb;*/
             }
-            pit_angle_ref = gimbal_pitch * 0.7f + last_p * 0.3f;
-            yaw_angle_ref = gimbal_yaw + manual_offset;
+            pit_angle_ref=KalmanFilter(&kfp_pitch,gimbal_pitch);
+            yaw_angle_ref = KalmanFilter(&kfp_yaw,gimbal_yaw);
+//            pit_angle_ref = gimbal_pitch /** 0.7f + last_p * 0.3f*/;
+//            yaw_angle_ref = gimbal_yaw /** 0.7f + last_p * 0.3f*/ /*+ manual_offset*/;
             last_p = gimbal_pitch;
             last_y = gimbal_yaw;
             target_distance = *(int32_t*)&rpy_rx_data.DATA[13] / 1000;  //获取目标距离
             recv_flag = 0;
+        } else
+        {
+//            pit_angle_ref=KalmanFilter(&kfp_pitch,gimbal_pitch);//上一次的预测值继续卡尔曼递归
+//            yaw_angle_ref = KalmanFilter(&kfp_yaw,gimbal_yaw);
+            pit_angle_ref = gimbal_pitch /** 0.7f + last_p * 0.3f*/;
+            yaw_angle_ref = gimbal_yaw /** 0.7f + last_p * 0.3f*/ /*+ manual_offset*/;
         }
         //遥控器微调
 //    gimbal_yaw_control();
@@ -298,10 +347,10 @@ void Gimbal_Auto_control(void){
         //pit_angle_ref=pit_relative_angle+b;
 
         //限制pit轴的活动角度
-        if ((pit_angle_ref >= PIT_ANGLE_MAX) && (pit_angle_ref <= PIT_ANGLE_MIN)){
+        if ((pit_angle_ref >= PIT_ANGLE_MAX) || (pit_angle_ref <= PIT_ANGLE_MIN)){
             VAL_LIMIT(pit_angle_ref, PIT_ANGLE_MIN, PIT_ANGLE_MAX);
         }
-        if ((yaw_angle_ref >= 170) && (yaw_angle_ref <= -170)){
+        if ((yaw_angle_ref >= 170) || (yaw_angle_ref <= -170)){
             VAL_LIMIT(yaw_angle_ref, -170, 170);
         }
 
@@ -473,22 +522,22 @@ void PID_Reset_auto(){
              YAW_V_PID_LPF_A, YAW_V_PID_D_LPF_A, 0,
              Integral_Limit | Trapezoid_Intergral);
     PID_Init(&YawMotor.PID_Angle, YAW_A_PID_MAXOUT_A, YAW_A_PID_MAXINTEGRAL_A, 0.0,
-             YAW_A_PID_KP_A, YAW_A_PID_KI_A, YAW_A_PID_KD_A, 5, 2, 0, 0, 0,
+             yaw_a_kp, yaw_a_ki, yaw_a_kd, 5, 2, 0, 0, 0,
              Integral_Limit | Trapezoid_Intergral);
     PID_Init(&PitMotor.PID_Velocity, PITCH_V_PID_MAXOUT_A, PITCH_V_PID_MAXINTEGRAL_A, 0,
              PITCH_V_PID_KP_A, PITCH_V_PID_KI_A, PITCH_V_PID_KD_A, 1000, 5000,
              PITCH_V_PID_LPF_A, PITCH_V_PID_D_LPF_A, 0,
              Integral_Limit | Trapezoid_Intergral);
-    PID_Init(&PitMotor.PID_Angle, PITCH_A_PID_MAXOUT_A, PITCH_A_PID_MAXINTEGRAL_A, 0.0,
-             PITCH_A_PID_KP_A, PITCH_A_PID_KI_A, PITCH_A_PID_KD_A, 5, 2, 0, 0, 0,
-             Integral_Limit | Trapezoid_Intergral);
+    /*PID_Init(&PitMotor.PID_Angle, PITCH_A_PID_MAXOUT_A, PITCH_A_PID_MAXINTEGRAL_A, 0.0,
+             pitch_a_kp, pitch_a_ki, pitch_a_kd, 5, 2, 0, 0, 0,
+             Integral_Limit | Trapezoid_Intergral);*/
     c[0] = PITCH_V_FCC_C0_A;
     c[1] = PITCH_V_FCC_C1_A;
     c[2] = PITCH_V_FCC_C2_A;
     Feedforward_Init(&PitMotor.FFC_Velocity, PITCH_V_FFC_MAXOUT_A, c, PITCH_V_FCC_LPF_A, 4, 4);
 //    LDOB_Init(&PitMotor.LDOB, 30000 * 0, 0.1, c, 0.00001, 4, 4);
     PID_Init(&PitMotor.PID_Angle, PITCH_A_PID_MAXOUT_A, PITCH_A_PID_MAXINTEGRAL_A, 0,
-             PITCH_A_PID_KP_A, PITCH_A_PID_KI_A, PITCH_A_PID_KD_A, 5, 2, PITCH_A_PID_LPF_A, PITCH_A_PID_D_LPF_A, 0,
+             pitch_a_kp, pitch_a_ki, pitch_a_kd, 5, 2, PITCH_A_PID_LPF_A, PITCH_A_PID_D_LPF_A, 0,
              Integral_Limit | Trapezoid_Intergral | DerivativeFilter | Derivative_On_Measurement);
     c[0] = PITCH_A_FCC_C0_A;
     c[1] = PITCH_A_FCC_C1_A;

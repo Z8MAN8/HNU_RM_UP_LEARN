@@ -297,11 +297,11 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
 
                 /* TEST STOP */
 
-                if(rc.sw2 != RC_MI)
-                {
-                    memset(&rpy_rx_data, 0, sizeof(rpy_rx_data));
-                    recv_flag=0;
-                }
+//                if(rc.sw2 != RC_MI)
+//                {
+//                    memset(&rpy_rx_data, 0, sizeof(rpy_rx_data));
+//                    recv_flag=0;
+//                }
 
                 /*if(upper_rx_data.SC != sc || upper_rx_data.AC != ac)
                 {

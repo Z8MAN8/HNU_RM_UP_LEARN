@@ -90,7 +90,7 @@ void shoot_task(const void* argu){
 
         /* bullet single or continue trigger command control  */
         if (( RC_SINGLE_TRIG ||rc.mouse.l         //遥控器或鼠标单发
-              ||auto_rx_data.shootCommand)     //上位机单发
+              /*||auto_rx_data.shootCommand*/)     //上位机单发
             && shoot_state == DONT_SHOOT){
 
             auto_rx_data.shootCommand=0;
