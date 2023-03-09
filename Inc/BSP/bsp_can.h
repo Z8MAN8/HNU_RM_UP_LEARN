@@ -99,8 +99,10 @@ typedef struct
 
 
 extern MotorTypeDef chassis_motor[];
-extern MotorTypeDef YawMotor;
-extern MotorTypeDef PitMotor;
+extern MotorTypeDef YawMotor_Manual;
+extern MotorTypeDef YawMotor_Auto;
+extern MotorTypeDef PitMotor_Manual;
+extern MotorTypeDef PitMotor_Auto;
 extern MotoMeasureTypeDef moto_trigger;
 extern MotoMeasureTypeDef moto_test;
 extern MotoMeasureTypeDef moto_shoot[];//0左，1右；

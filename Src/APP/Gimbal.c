@@ -27,6 +27,10 @@ float pitch_a_kd = 1;
 
 static float gimbal_yaw = 0;
 static float gimbal_pitch = 0;  //解析上位机发送的云台角度
+static int16_t yaw_moto_current_manual = 0;
+static int16_t yaw_moto_current_auto = 0;
+static int16_t pit_moto_current_manual = 0;
+static int16_t pit_moto_current_auto = 0;
 //TODO:考虑将noaction处理函数和飞坡前的对准操作合在一起
 
 ImuTypeDef imu;    //储存IMU传感器相关的数据
@@ -57,8 +61,8 @@ float yaw_angle_ref;
 float pit_angle_ref;
 
 /* 云台电机电流 */
-int16_t yaw_moto_current;
-int16_t pit_moto_current;
+int16_t *yaw_moto_current = &yaw_moto_current_manual;
+int16_t *pit_moto_current = &pit_moto_current_manual;
 
 bool_t recv_flag=false;   //虚拟串口接收标志位
 /*切换手动和自动模式相应PID参数的标志位*/
@@ -117,8 +121,8 @@ void Gimbal_Get_information(void){
     IMU_Get_data(&imu);
 
     /*获取云台相对角度*/
-    yaw_relative_angle = Gimbal_Get_relative_pos(YawMotor.RawAngle, yaw_center_offset)/22.75f;
-    pit_relative_angle = Gimbal_Get_relative_pos(PitMotor.RawAngle, pit_center_offset)/22.75f;
+    yaw_relative_angle = Gimbal_Get_relative_pos(YawMotor_Manual.RawAngle, yaw_center_offset) / 22.75f;
+    pit_relative_angle = Gimbal_Get_relative_pos(PitMotor_Manual.RawAngle, pit_center_offset) / 22.75f;
 
     /*处理PC端键鼠控制*/
     PC_Handle_kb();
@@ -205,9 +209,13 @@ void Gimbal_Init_handle(void){
             pit_angle_ref = 0;
             yaw_angle_ref = 0;
             /*云台归中完成，将各参数设回正常值*/
-            YawMotor.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_M;
-            YawMotor.FFC_Velocity.MaxOut=YAW_V_FFC_MAXOUT;
-            PitMotor.PID_Velocity.MaxOut=PITCH_V_PID_MAXOUT_M;
+            YawMotor_Manual.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_M;
+            YawMotor_Manual.FFC_Velocity.MaxOut=YAW_V_FFC_MAXOUT;
+            PitMotor_Manual.PID_Velocity.MaxOut=PITCH_V_PID_MAXOUT_M;
+
+            YawMotor_Auto.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_M;
+            YawMotor_Auto.FFC_Velocity.MaxOut=YAW_V_FFC_MAXOUT;
+            PitMotor_Auto.PID_Velocity.MaxOut=PITCH_V_PID_MAXOUT_M;
 
         }break;
     }
@@ -240,7 +248,7 @@ void Gimbal_Loop_handle(){
         /*切换完毕，进入普通模式的控制*/
     else{
         if(manual_pid_flag == 0){
-            PID_Reset_manual();
+//            PID_Reset_manual();
             manual_pid_flag = 1;
             auto_pid_flag = 0;
         }
@@ -292,7 +300,7 @@ void Gimbal_Auto_control(void){
     /*切换完毕，进入自瞄模式的控制*/
     else{
         if(auto_pid_flag == 0){
-            PID_Reset_auto();
+//            PID_Reset_auto();
             auto_pid_flag = 1;
             manual_pid_flag = 0;
         }
@@ -370,7 +378,8 @@ void Gimbal_Auto_control(void){
 
 void Gimbal_Control_moto(void)
 {
-    yaw_moto_current = Motor_Angle_Calculate(&YawMotor, yaw_angle_fdb,imu.gyro_z,yaw_angle_ref);
+    yaw_moto_current_manual = Motor_Angle_Calculate(&YawMotor_Manual, yaw_angle_fdb, imu.gyro_z, yaw_angle_ref);
+    yaw_moto_current_auto = Motor_Angle_Calculate(&YawMotor_Manual, yaw_angle_fdb, imu.gyro_z, yaw_angle_ref);
 
     /* pitch轴俯仰角度限制 */
     float delta=pit_relative_angle+pit_angle_ref-pit_angle_fdb;
@@ -389,10 +398,24 @@ void Gimbal_Control_moto(void)
 //	pit_moto_current = 0.5*last_current + 0.5*pit_moto_current;
 //	last_current = pit_moto_current;
 //pitch轴速度为gyro_x
-    pit_moto_current = Motor_Angle_Calculate(&PitMotor, pit_angle_fdb,imu.gyro_x,pit_angle_ref);
+    pit_moto_current_manual = Motor_Angle_Calculate(&PitMotor_Manual, pit_angle_fdb, imu.gyro_x, pit_angle_ref);
+    pit_moto_current_auto = Motor_Angle_Calculate(&PitMotor_Manual, pit_angle_fdb, imu.gyro_x, pit_angle_ref);
+
+    if(auto_pid_flag == 0){
+        if(abs(yaw_moto_current_manual - yaw_moto_current_auto) < 10)
+            yaw_moto_current = &yaw_moto_current_auto;
+        if(abs(pit_moto_current_manual - pit_moto_current_auto) < 10)
+            pit_moto_current = &pit_moto_current_auto;
+    }
+    if(manual_pid_flag == 0){
+        if(abs(yaw_moto_current_manual - yaw_moto_current_auto) < 10)
+            yaw_moto_current = &yaw_moto_current_manual;
+        if(abs(pit_moto_current_manual - pit_moto_current_auto) < 10)
+            pit_moto_current = &pit_moto_current_manual;
+    }
 
     //发送电流到云台电机电调
-    GimbalMoto_Send_current(yaw_moto_current, pit_moto_current);
+    GimbalMoto_Send_current(*yaw_moto_current, *pit_moto_current);
 }
 
 
@@ -417,11 +440,11 @@ void Gimbal_Relax_handle(void){
 void Gimbal_Back_param(void){
     gimbal_back_step = PIT_BACK_STEP;
     gim.ecd_offset_angle = yaw_relative_angle;
-    YawMotor.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_M_INIT;
-    YawMotor.FFC_Velocity.MaxOut=YAW_V_FFC_MAXOUT_INIT;
-    PitMotor.PID_Velocity.MaxOut=PITCH_V_PID_MAXOUT_INIT_M;
+    YawMotor_Manual.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_M_INIT;
+    YawMotor_Manual.FFC_Velocity.MaxOut=YAW_V_FFC_MAXOUT_INIT;
+    PitMotor_Manual.PID_Velocity.MaxOut=PITCH_V_PID_MAXOUT_INIT_M;
     //TODO:考虑加入KI值
-//    YawMotor.PID_Angle.Ki=80000;
+//    YawMotor_Manual.PID_Angle.Ki=80000;
     ramp_init(&pit_ramp, BACK_CENTER_TIME/GIMBAL_PERIOD);
     ramp_init(&yaw_ramp, BACK_CENTER_TIME/GIMBAL_PERIOD);
     //pid_pit_speed.max_output = 15000;
@@ -429,44 +452,86 @@ void Gimbal_Back_param(void){
 
 
 void Gimbal_Init_param(void){
+    /*手动参数初始化*/
     /* 云台pitch轴电机PID参数初始化 */
-    PID_Init(&PitMotor.PID_Velocity, PITCH_V_PID_MAXOUT_INIT_M, PITCH_V_PID_MAXINTEGRAL_M, 0,
+    PID_Init(&PitMotor_Manual.PID_Velocity, PITCH_V_PID_MAXOUT_INIT_M, PITCH_V_PID_MAXINTEGRAL_M, 0,
              PITCH_V_PID_KP_M, PITCH_V_PID_KI_M, PITCH_V_PID_KD_M, 1000, 5000, PITCH_V_PID_LPF_M,
              PITCH_V_PID_D_LPF_M, 0,
              Integral_Limit | Trapezoid_Intergral | OutputFilter | DerivativeFilter);
     c[0] = PITCH_V_FCC_C0_M;
     c[1] = PITCH_V_FCC_C1_M;
     c[2] = PITCH_V_FCC_C2_M;
-    Feedforward_Init(&PitMotor.FFC_Velocity, PITCH_V_FFC_MAXOUT_M, c, PITCH_V_FCC_LPF_M, 4, 4);
-//    LDOB_Init(&PitMotor.LDOB, 30000 * 0, 0.1, c, 0.00001, 4, 4);
-    PID_Init(&PitMotor.PID_Angle, PITCH_A_PID_MAXOUT_M, PITCH_A_PID_MAXINTEGRAL_M, 0,
+    Feedforward_Init(&PitMotor_Manual.FFC_Velocity, PITCH_V_FFC_MAXOUT_M, c, PITCH_V_FCC_LPF_M, 4, 4);
+//    LDOB_Init(&PitMotor_Manual.LDOB, 30000 * 0, 0.1, c, 0.00001, 4, 4);
+    PID_Init(&PitMotor_Manual.PID_Angle, PITCH_A_PID_MAXOUT_M, PITCH_A_PID_MAXINTEGRAL_M, 0,
              PITCH_A_PID_KP_M, PITCH_A_PID_KI_M, PITCH_A_PID_KD_M, 5, 2, PITCH_A_PID_LPF_M, PITCH_A_PID_D_LPF_M, 0,
              Integral_Limit | Trapezoid_Intergral | DerivativeFilter | Derivative_On_Measurement);
     c[0] = PITCH_A_FCC_C0_M;
     c[1] = PITCH_A_FCC_C1_M;
     c[2] = PITCH_A_FCC_C2_M;
-    Feedforward_Init(&PitMotor.FFC_Angle, PITCH_A_FFC_MAXOUT_M, c, PITCH_A_FCC_LPF_M, 3, 3);
-    PitMotor.Max_Out = PITCH_MOTOR_MAXOUT * 0.9f;
+    Feedforward_Init(&PitMotor_Manual.FFC_Angle, PITCH_A_FFC_MAXOUT_M, c, PITCH_A_FCC_LPF_M, 3, 3);
+    PitMotor_Manual.Max_Out = PITCH_MOTOR_MAXOUT * 0.9f;
 
     /* 云台yaw轴电机PID参数初始化 */
-    PID_Init(&YawMotor.PID_Velocity, YAW_V_PID_MAXOUT_M_INIT, YAW_V_PID_MAXINTEGRAL_M, 0,
+    PID_Init(&YawMotor_Manual.PID_Velocity, YAW_V_PID_MAXOUT_M_INIT, YAW_V_PID_MAXINTEGRAL_M, 0,
              YAW_V_PID_KP_M, YAW_V_PID_KI_M, YAW_V_PID_KD_M, 1000, 5000,
              YAW_V_PID_LPF_M, YAW_V_PID_D_LPF_M, 0,
              Integral_Limit | Trapezoid_Intergral | DerivativeFilter);
     c[0] = YAW_V_FCC_C0;
     c[1] = YAW_V_FCC_C1;
     c[2] = YAW_V_FCC_C2;
-    Feedforward_Init(&YawMotor.FFC_Velocity, YAW_V_FFC_MAXOUT_INIT, c, YAW_V_FCC_LPF, 4, 4);
-//    LDOB_Init(&YawMotor.LDOB, 30000 * 0, 0.1, c, 0.00001, 4, 4);
+    Feedforward_Init(&YawMotor_Manual.FFC_Velocity, YAW_V_FFC_MAXOUT_INIT, c, YAW_V_FCC_LPF, 4, 4);
+//    LDOB_Init(&YawMotor_Manual.LDOB, 30000 * 0, 0.1, c, 0.00001, 4, 4);
 
     c[0] = YAW_A_FCC_C0;
     c[1] = YAW_A_FCC_C1;
     c[2] = YAW_A_FCC_C2;
-    Feedforward_Init(&YawMotor.FFC_Angle, YAW_A_FFC_MAXOUT, c, YAW_A_FCC_LPF, 3, 3);
-    PID_Init(&YawMotor.PID_Angle, YAW_A_PID_MAXOUT_M, YAW_A_PID_MAXINTEGRAL_M, 0.0,
+    Feedforward_Init(&YawMotor_Manual.FFC_Angle, YAW_A_FFC_MAXOUT, c, YAW_A_FCC_LPF, 3, 3);
+    PID_Init(&YawMotor_Manual.PID_Angle, YAW_A_PID_MAXOUT_M, YAW_A_PID_MAXINTEGRAL_M, 0.0,
              YAW_A_PID_KP_M, YAW_A_PID_KI_M, YAW_A_PID_KD_M, 5, 2, 0, 0, 0,
              Integral_Limit | Trapezoid_Intergral);
-    YawMotor.Max_Out = YAW_MOTOR_MAXOUT * 0.9f;
+    YawMotor_Manual.Max_Out = YAW_MOTOR_MAXOUT * 0.9f;
+
+
+    /*自瞄参数初始化*/
+    /* 云台pitch轴电机PID参数初始化 */
+    PID_Init(&PitMotor_Auto.PID_Velocity, PITCH_V_PID_MAXOUT_INIT_M, PITCH_V_PID_MAXINTEGRAL_M, 0,
+             PITCH_V_PID_KP_M, PITCH_V_PID_KI_M, PITCH_V_PID_KD_M, 1000, 5000, PITCH_V_PID_LPF_M,
+             PITCH_V_PID_D_LPF_M, 0,
+             Integral_Limit | Trapezoid_Intergral | OutputFilter | DerivativeFilter);
+    c[0] = PITCH_V_FCC_C0_M;
+    c[1] = PITCH_V_FCC_C1_M;
+    c[2] = PITCH_V_FCC_C2_M;
+    Feedforward_Init(&PitMotor_Auto.FFC_Velocity, PITCH_V_FFC_MAXOUT_M, c, PITCH_V_FCC_LPF_M, 4, 4);
+//    LDOB_Init(&PitMotor_Auto.LDOB, 30000 * 0, 0.1, c, 0.00001, 4, 4);
+    PID_Init(&PitMotor_Auto.PID_Angle, PITCH_A_PID_MAXOUT_M, PITCH_A_PID_MAXINTEGRAL_M, 0,
+             PITCH_A_PID_KP_M, PITCH_A_PID_KI_M, PITCH_A_PID_KD_M, 5, 2, PITCH_A_PID_LPF_M, PITCH_A_PID_D_LPF_M, 0,
+             Integral_Limit | Trapezoid_Intergral | DerivativeFilter | Derivative_On_Measurement);
+    c[0] = PITCH_A_FCC_C0_M;
+    c[1] = PITCH_A_FCC_C1_M;
+    c[2] = PITCH_A_FCC_C2_M;
+    Feedforward_Init(&PitMotor_Auto.FFC_Angle, PITCH_A_FFC_MAXOUT_M, c, PITCH_A_FCC_LPF_M, 3, 3);
+    PitMotor_Auto.Max_Out = PITCH_MOTOR_MAXOUT * 0.9f;
+
+    /* 云台yaw轴电机PID参数初始化 */
+    PID_Init(&YawMotor_Auto.PID_Velocity, YAW_V_PID_MAXOUT_M_INIT, YAW_V_PID_MAXINTEGRAL_M, 0,
+             YAW_V_PID_KP_M, YAW_V_PID_KI_M, YAW_V_PID_KD_M, 1000, 5000,
+             YAW_V_PID_LPF_M, YAW_V_PID_D_LPF_M, 0,
+             Integral_Limit | Trapezoid_Intergral | DerivativeFilter);
+    c[0] = YAW_V_FCC_C0;
+    c[1] = YAW_V_FCC_C1;
+    c[2] = YAW_V_FCC_C2;
+    Feedforward_Init(&YawMotor_Auto.FFC_Velocity, YAW_V_FFC_MAXOUT_INIT, c, YAW_V_FCC_LPF, 4, 4);
+//    LDOB_Init(&YawMotor_Auto.LDOB, 30000 * 0, 0.1, c, 0.00001, 4, 4);
+
+    c[0] = YAW_A_FCC_C0;
+    c[1] = YAW_A_FCC_C1;
+    c[2] = YAW_A_FCC_C2;
+    Feedforward_Init(&YawMotor_Auto.FFC_Angle, YAW_A_FFC_MAXOUT, c, YAW_A_FCC_LPF, 3, 3);
+    PID_Init(&YawMotor_Auto.PID_Angle, YAW_A_PID_MAXOUT_M, YAW_A_PID_MAXINTEGRAL_M, 0.0,
+             YAW_A_PID_KP_M, YAW_A_PID_KI_M, YAW_A_PID_KD_M, 5, 2, 0, 0, 0,
+             Integral_Limit | Trapezoid_Intergral);
+    YawMotor_Auto.Max_Out = YAW_MOTOR_MAXOUT * 0.9f;
 
     First_Order_Filter_Init(&mouse_x_lpf,0.014,0.1);
     First_Order_Filter_Init(&mouse_y_lpf,0.014,0.1);
@@ -476,72 +541,72 @@ void Gimbal_Init_param(void){
 
 
 void PID_Reset_manual(){
-    PID_Init(&YawMotor.PID_Velocity, YAW_V_PID_MAXOUT_M, YAW_V_PID_MAXINTEGRAL_M, 0,
+    PID_Init(&YawMotor_Manual.PID_Velocity, YAW_V_PID_MAXOUT_M, YAW_V_PID_MAXINTEGRAL_M, 0,
              YAW_V_PID_KP_M, YAW_V_PID_KI_M, YAW_V_PID_KD_M, 1000, 5000,
              YAW_V_PID_LPF_M, YAW_V_PID_D_LPF_M, 0,
              Integral_Limit | Trapezoid_Intergral);
-    PID_Init(&YawMotor.PID_Angle, YAW_A_PID_MAXOUT_M, YAW_A_PID_MAXINTEGRAL_M, 0.0,
+    PID_Init(&YawMotor_Manual.PID_Angle, YAW_A_PID_MAXOUT_M, YAW_A_PID_MAXINTEGRAL_M, 0.0,
              YAW_A_PID_KP_M, YAW_A_PID_KI_M, YAW_A_PID_KD_M, 5, 2, 0, 0, 0,
              Integral_Limit | Trapezoid_Intergral);
-    PID_Init(&PitMotor.PID_Velocity, PITCH_V_PID_MAXOUT_M, PITCH_V_PID_MAXINTEGRAL_M, 0,
+    PID_Init(&PitMotor_Manual.PID_Velocity, PITCH_V_PID_MAXOUT_M, PITCH_V_PID_MAXINTEGRAL_M, 0,
              PITCH_V_PID_KP_M, PITCH_V_PID_KI_M, PITCH_V_PID_KD_M, 1000, 5000,
              PITCH_V_PID_LPF_M, PITCH_V_PID_D_LPF_M, 0,
              Integral_Limit | Trapezoid_Intergral);
-    PID_Init(&PitMotor.PID_Angle, PITCH_A_PID_MAXOUT_M, PITCH_A_PID_MAXINTEGRAL_M, 0.0,
+    PID_Init(&PitMotor_Manual.PID_Angle, PITCH_A_PID_MAXOUT_M, PITCH_A_PID_MAXINTEGRAL_M, 0.0,
              PITCH_A_PID_KP_M, PITCH_A_PID_KI_M, PITCH_A_PID_KD_M, 5, 2, 0, 0, 0,
              Integral_Limit | Trapezoid_Intergral);
     c[0] = PITCH_V_FCC_C0_M,
             c[1] = PITCH_V_FCC_C1_M,
             c[2] = PITCH_V_FCC_C2_M,
-            Feedforward_Init(&PitMotor.FFC_Velocity, PITCH_V_FFC_MAXOUT_M, c, PITCH_V_FCC_LPF_M, 4, 4);
-//    LDOB_Init(&PitMotor.LDOB, 30000 * 0, 0.1, c, 0.00001, 4, 4);
-    PID_Init(&PitMotor.PID_Angle, PITCH_A_PID_MAXOUT_M, PITCH_A_PID_MAXINTEGRAL_M, 0,
+            Feedforward_Init(&PitMotor_Manual.FFC_Velocity, PITCH_V_FFC_MAXOUT_M, c, PITCH_V_FCC_LPF_M, 4, 4);
+//    LDOB_Init(&PitMotor_Manual.LDOB, 30000 * 0, 0.1, c, 0.00001, 4, 4);
+    PID_Init(&PitMotor_Manual.PID_Angle, PITCH_A_PID_MAXOUT_M, PITCH_A_PID_MAXINTEGRAL_M, 0,
              PITCH_A_PID_KP_M, PITCH_A_PID_KI_M, PITCH_A_PID_KD_M, 5, 2, PITCH_A_PID_LPF_M, PITCH_A_PID_D_LPF_M, 0,
              Integral_Limit | Trapezoid_Intergral | DerivativeFilter | Derivative_On_Measurement);
     c[0] = PITCH_A_FCC_C0_M,
             c[1] = PITCH_A_FCC_C1_M,
             c[2] = PITCH_A_FCC_C2_M,
-            Feedforward_Init(&PitMotor.FFC_Angle, PITCH_A_FFC_MAXOUT_M, c, PITCH_A_FCC_LPF_M, 3, 3);
+            Feedforward_Init(&PitMotor_Manual.FFC_Angle, PITCH_A_FFC_MAXOUT_M, c, PITCH_A_FCC_LPF_M, 3, 3);
 }
 
 
 void PID_Reset_auto(){
-//	YawMotor.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_A;
-//	YawMotor.PID_Velocity.IntegralLimit=YAW_V_PID_MAXINTEGRAL_A;
-//	YawMotor.PID_Velocity.Kp=YAW_V_PID_KP_A;
-//	YawMotor.PID_Velocity.Ki=YAW_V_PID_KI_A;
-//	YawMotor.PID_Velocity.Kd=YAW_V_PID_KD_A;
+//	YawMotor_Manual.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_A;
+//	YawMotor_Manual.PID_Velocity.IntegralLimit=YAW_V_PID_MAXINTEGRAL_A;
+//	YawMotor_Manual.PID_Velocity.Kp=YAW_V_PID_KP_A;
+//	YawMotor_Manual.PID_Velocity.Ki=YAW_V_PID_KI_A;
+//	YawMotor_Manual.PID_Velocity.Kd=YAW_V_PID_KD_A;
 //
-//	YawMotor.PID_Angle.MaxOut=YAW_A_PID_MAXOUT_A;
-//	YawMotor.PID_Angle.IntegralLimit=YAW_A_PID_MAXINTEGRAL_A;
-//	YawMotor.PID_Angle.Kp=YAW_A_PID_KP_A;
-//	YawMotor.PID_Angle.Ki=YAW_A_PID_KI_A;
-//	YawMotor.PID_Angle.Kd=YAW_A_PID_KD_A;
-    PID_Init(&YawMotor.PID_Velocity, YAW_V_PID_MAXOUT_A, YAW_V_PID_MAXINTEGRAL_A, 0,
+//	YawMotor_Manual.PID_Angle.MaxOut=YAW_A_PID_MAXOUT_A;
+//	YawMotor_Manual.PID_Angle.IntegralLimit=YAW_A_PID_MAXINTEGRAL_A;
+//	YawMotor_Manual.PID_Angle.Kp=YAW_A_PID_KP_A;
+//	YawMotor_Manual.PID_Angle.Ki=YAW_A_PID_KI_A;
+//	YawMotor_Manual.PID_Angle.Kd=YAW_A_PID_KD_A;
+    PID_Init(&YawMotor_Manual.PID_Velocity, YAW_V_PID_MAXOUT_A, YAW_V_PID_MAXINTEGRAL_A, 0,
              YAW_V_PID_KP_A, YAW_V_PID_KI_A, YAW_V_PID_KD_A, 1000, 5000,
              YAW_V_PID_LPF_A, YAW_V_PID_D_LPF_A, 0,
              Integral_Limit | Trapezoid_Intergral);
-    PID_Init(&YawMotor.PID_Angle, YAW_A_PID_MAXOUT_A, YAW_A_PID_MAXINTEGRAL_A, 0.0,
+    PID_Init(&YawMotor_Manual.PID_Angle, YAW_A_PID_MAXOUT_A, YAW_A_PID_MAXINTEGRAL_A, 0.0,
              yaw_a_kp, yaw_a_ki, yaw_a_kd, 5, 2, 0, 0, 0,
              Integral_Limit | Trapezoid_Intergral);
-    PID_Init(&PitMotor.PID_Velocity, PITCH_V_PID_MAXOUT_A, PITCH_V_PID_MAXINTEGRAL_A, 0,
+    PID_Init(&PitMotor_Manual.PID_Velocity, PITCH_V_PID_MAXOUT_A, PITCH_V_PID_MAXINTEGRAL_A, 0,
              PITCH_V_PID_KP_A, PITCH_V_PID_KI_A, PITCH_V_PID_KD_A, 1000, 5000,
              PITCH_V_PID_LPF_A, PITCH_V_PID_D_LPF_A, 0,
              Integral_Limit | Trapezoid_Intergral);
-    /*PID_Init(&PitMotor.PID_Angle, PITCH_A_PID_MAXOUT_A, PITCH_A_PID_MAXINTEGRAL_A, 0.0,
+    /*PID_Init(&PitMotor_Manual.PID_Angle, PITCH_A_PID_MAXOUT_A, PITCH_A_PID_MAXINTEGRAL_A, 0.0,
              pitch_a_kp, pitch_a_ki, pitch_a_kd, 5, 2, 0, 0, 0,
              Integral_Limit | Trapezoid_Intergral);*/
     c[0] = PITCH_V_FCC_C0_A;
     c[1] = PITCH_V_FCC_C1_A;
     c[2] = PITCH_V_FCC_C2_A;
-    Feedforward_Init(&PitMotor.FFC_Velocity, PITCH_V_FFC_MAXOUT_A, c, PITCH_V_FCC_LPF_A, 4, 4);
-//    LDOB_Init(&PitMotor.LDOB, 30000 * 0, 0.1, c, 0.00001, 4, 4);
-    PID_Init(&PitMotor.PID_Angle, PITCH_A_PID_MAXOUT_A, PITCH_A_PID_MAXINTEGRAL_A, 0,
+    Feedforward_Init(&PitMotor_Manual.FFC_Velocity, PITCH_V_FFC_MAXOUT_A, c, PITCH_V_FCC_LPF_A, 4, 4);
+//    LDOB_Init(&PitMotor_Manual.LDOB, 30000 * 0, 0.1, c, 0.00001, 4, 4);
+    PID_Init(&PitMotor_Manual.PID_Angle, PITCH_A_PID_MAXOUT_A, PITCH_A_PID_MAXINTEGRAL_A, 0,
              pitch_a_kp, pitch_a_ki, pitch_a_kd, 5, 2, PITCH_A_PID_LPF_A, PITCH_A_PID_D_LPF_A, 0,
              Integral_Limit | Trapezoid_Intergral | DerivativeFilter | Derivative_On_Measurement);
     c[0] = PITCH_A_FCC_C0_A;
     c[1] = PITCH_A_FCC_C1_A;
     c[2] = PITCH_A_FCC_C2_A;
-    Feedforward_Init(&PitMotor.FFC_Angle, PITCH_A_FFC_MAXOUT_A, c, PITCH_A_FCC_LPF_A, 3, 3);
+    Feedforward_Init(&PitMotor_Manual.FFC_Angle, PITCH_A_FFC_MAXOUT_A, c, PITCH_A_FCC_LPF_A, 3, 3);
 }
 

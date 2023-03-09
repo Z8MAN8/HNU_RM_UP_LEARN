@@ -11,8 +11,10 @@
 //TODO:
 //chassis_mode_e chassis_mode;
 /* 云台电机 */
-MotorTypeDef PitMotor;
-MotorTypeDef YawMotor;
+MotorTypeDef PitMotor_Manual;
+MotorTypeDef YawMotor_Manual;
+MotorTypeDef PitMotor_Auto;
+MotorTypeDef YawMotor_Auto;
 /* 拨弹电机 */
 MotoMeasureTypeDef moto_trigger;
 /* 底盘电机 */
@@ -105,18 +107,30 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
     if(hcan==&CONTROL_CAN) {
         switch (rx_header.StdId) {
             case CAN_YAW_MOTOR_ID: {
-                if (YawMotor.msg_cnt++ <= 50)
-                    get_motor_offset(&YawMotor, rx_data);
+                if (YawMotor_Manual.msg_cnt++ <= 50)
+                    get_motor_offset(&YawMotor_Manual, rx_data);
                 else
-                    get_moto_info(&YawMotor, rx_data);
+                    get_moto_info(&YawMotor_Manual, rx_data);
+                Err_Detector_hook(GIMBAL_YAW_OFFLINE);
+
+                if (YawMotor_Auto.msg_cnt++ <= 50)
+                    get_motor_offset(&YawMotor_Auto, rx_data);
+                else
+                    get_moto_info(&YawMotor_Auto, rx_data);
                 Err_Detector_hook(GIMBAL_YAW_OFFLINE);
             }
                 break;
             case CAN_PIT_MOTOR_ID: {
-                if (PitMotor.msg_cnt++ <= 50)
-                    get_motor_offset(&PitMotor, rx_data);
+                if (PitMotor_Manual.msg_cnt++ <= 50)
+                    get_motor_offset(&PitMotor_Manual, rx_data);
                 else
-                    get_moto_info(&PitMotor, rx_data);
+                    get_moto_info(&PitMotor_Manual, rx_data);
+                Err_Detector_hook(GIMBAL_PIT_OFFLINE);
+
+                if (PitMotor_Auto.msg_cnt++ <= 50)
+                    get_motor_offset(&PitMotor_Auto, rx_data);
+                else
+                    get_moto_info(&PitMotor_Auto, rx_data);
                 Err_Detector_hook(GIMBAL_PIT_OFFLINE);
             }
                 break;
