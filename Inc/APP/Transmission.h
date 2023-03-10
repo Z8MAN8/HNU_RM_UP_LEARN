@@ -21,6 +21,8 @@
 #define CAN_ODOM_TX_TWO     0x142   /* odom数据帧第二帧 */
 #define CAN_ODOM_TX_THREE   0x143   /* odom数据帧第二帧 */
 
+#define CAN_GIM_STATE         0x145   /* 底盘状态数据 */
+
 
 
 /* BCP通讯协议相关 */
