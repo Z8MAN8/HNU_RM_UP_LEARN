@@ -128,9 +128,14 @@ void Gimbal_Get_information(void){
     PC_Handle_kb();
 
     /*获取云台当前模式，这里只能判断是RELAX还是INIT模式*/
+    // 因为其他模式的判断在Gimbal_Init_handle()里面做
     Gimbal_Get_mode();
 }
 
+//  云台状态机逻辑：
+//  - Gimbal_Get_mode：获取云台模式，先进行一个总体的错误判断。如果云台出现以下错误：1. 遥控器离线 2. yaw轴或pitch轴电机离线 以及云台被手动调整为relax模式时，切换/维持RELAX状态。同时，如果当前状态为GIMBAL_RELAX，
+//    则直接切换模式位GIMBAL_INIT（反正问题/控制状态还持续的话下一轮又变成RELAX了
+//  - 可以理解成，RELAX和INIT都是云台的准备状态，剩下两个GIMBAL_CLOSE_LOOP_ZGYRO、GIMBAL_AUTO才是云台的正常运行状态
 
 void Gimbal_Get_mode(void){
     /* gim.ac_mode = Remote_Is_action();
@@ -168,6 +173,10 @@ int16_t Gimbal_Get_relative_pos(int16_t raw_ecd, int16_t center_offset){
     return tmp;
 }
 
+//  包含云台回中处理和init后根据控制器信号选择手动或自动控制的逻辑
+//  - gimbal_back_step 并不是一旦为 BACK_IS_OK 就不会再变，不会再次进入回中步骤了。Gimbal_Relax_handle() 中会调用 Gimbal_Back_param() 给他重新赋初始值。
+//    也就是说每进入relax状态一次，后续都会重新回中
+//  - 此时xxx_angle_fdb不是用imu，而是用编码器算出来的（没有imu精确），因为imu的offset要在归中后得到，然后才可以开始用imu
 
 /*云台初始化处理函数*/
 void Gimbal_Init_handle(void){
@@ -361,7 +370,7 @@ void Gimbal_Auto_control(void){
         if ((yaw_angle_ref >= 170) || (yaw_angle_ref <= -170)){
             VAL_LIMIT(yaw_angle_ref, -170, 170);
         }
-
+//  自瞄时暂时依然使用编码器数据
 //    //计算pitch轴相对角度差
         pit_angle_fdb = pit_relative_angle;
 //    //计算yaw轴相对角度差

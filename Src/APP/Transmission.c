@@ -32,10 +32,26 @@ SendFrameTypeDef auto_tx_data =
 
 /*上板给下板发送的数据*/
 static uint8_t cm_data[8] = {0};
+static uint8_t gim_state_buffer[8] = {0};
 extern volatile float yaw_angle_ref_v;
 
 extern uint8_t USB_SEND_OK;
 
+// 都发了些什么？
+//  - cm_data: 发送给底盘的 角度数据的buffer
+//  - auto_tx_data: 发送给上位机 用于自瞄的 （目前只传了pitch、yaw角度以及云台控制模式以及旋转方向
+//  - rpy_tx_data: 通过usb发送给 上位机的 欧拉角数据
+//  - testdata: 测试数据
+
+// xxx_data 和 xxx_buffer 是什么关系？
+//  - xxx_data 是包含了帧头（帧尾）的完整的整个数据帧data，xxx_buffer是单纯的数据部分。在接下来的处理中加上帧头（帧尾）变成 xxx_data
+
+// 这些角度都是什么？
+//  - xxx_angle_fdb: 反馈角度（单位：degree） 用imu反馈的值减去offset(归中完成时的imu角度）得到
+//  - xxx_relative_angle：相对（归中值）角度（单位：degree）（用电机编码器的值和写死的归中完成的值算出来的）
+//  - xxx_angle_ref：期望角度（单位：degree
+//  - gim.xxx_offset_angle：归中完成时imu的角度值。一开始使用 xxx_relative_angle 作为现在反馈角度（xxx_angle_fdb)，在得到这个值之后就用这个了（imu更精确）
+//  - 同理，后面接了v就是指角速度
 
 void transmission_task(void const * argument)
 {
@@ -55,6 +71,9 @@ void transmission_task(void const * argument)
         /*给下板发送数据*/
         Get_Communicate_data(cm_data, CAN_RPY_TX);
         Send_Communicate_data(&COM_CAN, cm_data, CAN_RPY_TX);
+
+        Get_Communicate_data(gim_state_buffer, CAN_GIM_STATE);
+        Send_Communicate_data(&COM_CAN, gim_state_buffer, CAN_GIM_STATE);
 
         auto_tx_data.pitchAngleGet=pit_angle_fdb;
         auto_tx_data.yawAngleGet=yaw_angle_fdb;
@@ -81,6 +100,7 @@ void transmission_task(void const * argument)
         rpy_tx_buffer[11] = *gimbal_rpy >> 16;
         rpy_tx_buffer[12] = *gimbal_rpy >> 24;
 
+        // 这里是发送数据，云台接收数据在 `usbd_cdc_if.c` 中的**回调函数** CDC_Receive_FS() 里进行处理。
         Add_Frame_To_Upper(GIMBAL, rpy_tx_buffer);
         CDC_Transmit_FS((uint8_t*)&rpy_tx_data, sizeof(rpy_tx_data));
 
@@ -101,7 +121,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         angle_history[i]=yaw_angle_fdb;
         angle_history[i+1]=pit_angle_fdb;
         auto_tx_data.index++;
-        HAL_GPIO_TogglePin(GPIOH,GPIO_PIN_12);
+        HAL_GPIO_TogglePin(GPIOH,CAM_IO_Pin);
     }
 }
 
@@ -122,6 +142,21 @@ void Get_Communicate_data(uint8_t* data, uint16_t send_type){
             data[5] = *yaw_ref_v >> 8;
             data[4] = *yaw_ref_v;
         }break;
+
+        // 传输云台状态数据
+        case CAN_GIM_STATE: {
+            // 其实可以强制类型转换成 uint8_t 也不会丢数据，但是那就要在参数那里转换，比较难看，现在就传这一个也不挤所以先保留int传过去好了
+            int *gim_state = (int *)&gim.ctrl_mode;
+            data[3] = *gim_state >> 24;
+            data[2] = *gim_state >> 16;
+            data[1] = *gim_state >> 8;
+            data[0] = *gim_state;
+            // 未用到，留空
+            data[7] = 0;
+            data[6] = 0;
+            data[5] = 0;
+            data[4] = 0;
+        }
         default: break;
     }
 }

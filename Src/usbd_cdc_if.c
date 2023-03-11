@@ -279,6 +279,10 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
         recv_flag=1;
 
         switch (upper_rx_data.ID) {
+            // FIXME: 为啥这里会有GIMBAL的case啊！GIMBAL不是云台发送给底盘的数据的ID吗，难道这里的GIMBAL是指上位机发给云台的数据帧头的ID……然后云台发给底盘的数据帧ID也叫GIMBAL……
+            //  - 但是底盘发上来的数据ID分别是 CHASS_IMU 和 CHASSIS_ODOM 啊，这咋没有对这俩case的接收……全用default收了吗！还是说上位机收了？话说这个虚拟串口是怎么接的？上位机接云台云台接底盘？底盘发上位机应该收不到吧？
+            //  - 这咋不校验？
+            //  - 这里有点乱，可能需要整理一下注释
             case GIMBAL:{
                 memcpy(&rpy_rx_data,&upper_rx_data,sizeof(rpy_rx_data));
                 /*sc = (uint8_t)Sumcheck_Cal(upper_rx_data) >> 8;
