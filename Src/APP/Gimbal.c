@@ -27,6 +27,9 @@ float pitch_a_kd = 1;
 
 static float gimbal_yaw = 0;
 static float gimbal_pitch = 0;  //解析上位机发送的云台角度
+static float yaw_speed = 0;
+static float pitch_speed = 0;
+static float roll_speed = 0;    //解析上位机发送的目标移动速度
 static int16_t yaw_moto_current_manual = 0;
 static int16_t yaw_moto_current_auto = 0;
 static int16_t pit_moto_current_manual = 0;
@@ -249,6 +252,9 @@ void Gimbal_Loop_handle(){
             /*((int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
                               | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000) + yaw_angle_fdb;*/
         }
+        yaw_speed   = *(int32_t*)&rpy_rx_data.DATA[13] / 1000.0;
+        pitch_speed = *(int32_t*)&rpy_rx_data.DATA[17] / 1000.0;
+        roll_speed  = *(int32_t*)&rpy_rx_data.DATA[21] / 1000.0;
     }
     /*普通模式中与自瞄模式的相互切换*/
     if(rc.sw2==RC_MI||rc.mouse.r==1){
@@ -343,6 +349,10 @@ void Gimbal_Auto_control(void){
                         /*((int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
                                           | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000) + yaw_angle_fdb;*/
             }
+            yaw_speed   = *(int32_t*)&rpy_rx_data.DATA[13] / 1000.0;
+            pitch_speed = *(int32_t*)&rpy_rx_data.DATA[17] / 1000.0;
+            roll_speed  = *(int32_t*)&rpy_rx_data.DATA[21] / 1000.0;
+
             pit_angle_ref=KalmanFilter(&kfp_pitch,gimbal_pitch);
             yaw_angle_ref = KalmanFilter(&kfp_yaw,gimbal_yaw);
 //            pit_angle_ref = gimbal_pitch /** 0.7f + last_p * 0.3f*/;
