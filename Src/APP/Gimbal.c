@@ -12,6 +12,9 @@
 #include "kalman.h"
 #include "keyboard.h"
 
+#include "bsp_dwt.h"
+
+
 //float yaw_a_kp = 30;
 //float yaw_a_ki = 200;
 //float yaw_a_kd = 0.001;
@@ -30,10 +33,10 @@ static float gimbal_pitch = 0;  //解析上位机发送的云台角度
 static float yaw_speed = 0;
 static float pitch_speed = 0;
 static float roll_speed = 0;    //解析上位机发送的目标移动速度
-static int16_t yaw_moto_current_manual = 0;
-static int16_t yaw_moto_current_auto = 0;
-static int16_t pit_moto_current_manual = 0;
-static int16_t pit_moto_current_auto = 0;
+int16_t yaw_moto_current_manual = 0;
+int16_t yaw_moto_current_auto = 0;
+int16_t pit_moto_current_manual = 0;
+int16_t pit_moto_current_auto = 0;
 //TODO:考虑将noaction处理函数和飞坡前的对准操作合在一起
 
 ImuTypeDef imu;    //储存IMU传感器相关的数据
@@ -60,8 +63,8 @@ float pit_angle_fdb = 0;
 float c[3] = {0};
 
 /* 云台电机期望角度(degree) */
-float yaw_angle_ref;
-float pit_angle_ref;
+float yaw_angle_ref =0;
+float pit_angle_ref=0;
 
 /* 云台电机电流 */
 int16_t *yaw_moto_current = &yaw_moto_current_manual;
@@ -74,17 +77,18 @@ static _Bool manual_pid_flag = 1;
 
 //存放25帧历史姿态数据
 float angle_history[50];
-Kalman kfp_pitch;
-Kalman kfp_yaw;
-//Kalman kfp_pitch;
-//Kalman kfp_yaw;
+
+
+
+
 
 void gimbal_task(void const * argument){
     /*初始化云台控制参数*/
     Gimbal_Init_param();
     /*获取PreviousWakeTime*/
     uint32_t Gimbal_Wake_time = osKernelSysTick();
-    Kalman_Init();
+    DWT_Init(168);
+
     while (1){
         /*获取云台传感器及控制信息*/
         Gimbal_Get_information();
@@ -300,7 +304,9 @@ void Gimbal_Control_pitch(void){
 void Gimbal_Auto_control(void){
 //    static float gimbal_yaw = 0;
 //    static float gimbal_pitch = 0;  //解析上位机发送的云台角度
-
+    static float dt = 0.0;//待初始化
+    static float task_dt = 1.0;//待初始化
+    static uint32_t old_counter=0;
 
     float target_distance = 0; //与识别目标的距离
 //    static bool_t com_protect = 1; //为1时一帧数据处理完毕
@@ -308,7 +314,7 @@ void Gimbal_Auto_control(void){
 
 
     /*自瞄模式中与普通模式的相互切换*/
-    if(rc.sw2==RC_UP){
+    if(rc.sw2==RC_UP && rc.mouse.r!=1){
         gim.ctrl_mode=GIMBAL_CLOSE_LOOP_ZGYRO;
 
     }
@@ -333,6 +339,8 @@ void Gimbal_Auto_control(void){
 //	HAL_GPIO_TogglePin(GPIOG,GPIO_PIN_2);
 //TODO:
         if(recv_flag) {  //欧拉角rpy方式控制
+            last_p = gimbal_pitch;//记录上一次的
+            last_y = gimbal_yaw;
             if (!rpy_rx_data.DATA[0]){     //绝对角度控制
                 gimbal_yaw = *(int32_t*)&rpy_rx_data.DATA[1] / 1000.0;
                         /*(int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
@@ -349,24 +357,20 @@ void Gimbal_Auto_control(void){
                         /*((int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
                                           | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000) + yaw_angle_fdb;*/
             }
-            yaw_speed   = *(int32_t*)&rpy_rx_data.DATA[13] / 1000.0;
-            pitch_speed = *(int32_t*)&rpy_rx_data.DATA[17] / 1000.0;
-            roll_speed  = *(int32_t*)&rpy_rx_data.DATA[21] / 1000.0;
-
-            pit_angle_ref=KalmanFilter(&kfp_pitch,gimbal_pitch);
-            yaw_angle_ref = KalmanFilter(&kfp_yaw,gimbal_yaw);
-//            pit_angle_ref = gimbal_pitch /** 0.7f + last_p * 0.3f*/;
-//            yaw_angle_ref = gimbal_yaw /** 0.7f + last_p * 0.3f*/ /*+ manual_offset*/;
-            last_p = gimbal_pitch;
-            last_y = gimbal_yaw;
-            target_distance = *(int32_t*)&rpy_rx_data.DATA[13] / 1000;  //获取目标距离
-            recv_flag = 0;
-        } else
-        {
-//            pit_angle_ref=KalmanFilter(&kfp_pitch,gimbal_pitch);//上一次的预测值继续卡尔曼递归
-//            yaw_angle_ref = KalmanFilter(&kfp_yaw,gimbal_yaw);
             pit_angle_ref = gimbal_pitch /** 0.7f + last_p * 0.3f*/;
             yaw_angle_ref = gimbal_yaw /** 0.7f + last_p * 0.3f*/ /*+ manual_offset*/;
+            target_distance = *(int32_t*)&rpy_rx_data.DATA[13] / 1000;  //获取目标距离
+            recv_flag = 0;
+            task_dt = DWT_GetDeltaT(&old_counter);
+            old_counter = DWT->CYCCNT;
+
+        } else
+        {
+            dt = DWT_GetDeltaT(&old_counter);
+            old_counter = DWT->CYCCNT;
+
+            pit_angle_ref += dt* (gimbal_pitch-last_p)/task_dt /** 0.7f + last_p * 0.3f*/;
+            yaw_angle_ref = dt* (gimbal_yaw-last_y)/task_dt /** 0.7f + last_p * 0.3f*/ /*+ manual_offset*/;
         }
         //遥控器微调
 //    gimbal_yaw_control();
@@ -377,9 +381,9 @@ void Gimbal_Auto_control(void){
         if ((pit_angle_ref >= PIT_ANGLE_MAX) || (pit_angle_ref <= PIT_ANGLE_MIN)){
             VAL_LIMIT(pit_angle_ref, PIT_ANGLE_MIN, PIT_ANGLE_MAX);
         }
-        if ((yaw_angle_ref >= 170) || (yaw_angle_ref <= -170)){
+/*        if ((yaw_angle_ref >= 170) || (yaw_angle_ref <= -170)){
             VAL_LIMIT(yaw_angle_ref, -170, 170);
-        }
+        }*/
 //  自瞄时暂时依然使用编码器数据
 //    //计算pitch轴相对角度差
         pit_angle_fdb = pit_relative_angle;
@@ -398,7 +402,7 @@ void Gimbal_Auto_control(void){
 void Gimbal_Control_moto(void)
 {
     yaw_moto_current_manual = Motor_Angle_Calculate(&YawMotor_Manual, yaw_angle_fdb, imu.gyro_z, yaw_angle_ref);
-    yaw_moto_current_auto = Motor_Angle_Calculate(&YawMotor_Manual, yaw_angle_fdb, imu.gyro_z, yaw_angle_ref);
+    yaw_moto_current_auto = Motor_Angle_Calculate(&YawMotor_Auto, yaw_angle_fdb, imu.gyro_z, yaw_angle_ref);
 
     /* pitch轴俯仰角度限制 */
     float delta=pit_relative_angle+pit_angle_ref-pit_angle_fdb;
@@ -418,19 +422,33 @@ void Gimbal_Control_moto(void)
 //	last_current = pit_moto_current;
 //pitch轴速度为gyro_x
     pit_moto_current_manual = Motor_Angle_Calculate(&PitMotor_Manual, pit_angle_fdb, imu.gyro_x, pit_angle_ref);
-    pit_moto_current_auto = Motor_Angle_Calculate(&PitMotor_Manual, pit_angle_fdb, imu.gyro_x, pit_angle_ref);
+    pit_moto_current_auto = Motor_Angle_Calculate(&PitMotor_Auto, pit_angle_fdb, imu.gyro_x, pit_angle_ref);
 
-    if(auto_pid_flag == 0){
-        if(abs(yaw_moto_current_manual - yaw_moto_current_auto) < 10)
-            yaw_moto_current = &yaw_moto_current_auto;
-        if(abs(pit_moto_current_manual - pit_moto_current_auto) < 10)
-            pit_moto_current = &pit_moto_current_auto;
+    if(gim.ctrl_mode==GIMBAL_AUTO){
+        yaw_moto_current = &yaw_moto_current_auto;
+        pit_moto_current = &pit_moto_current_auto;
+        if(auto_pid_flag == 0){
+            if(abs(yaw_moto_current_manual - yaw_moto_current_auto) > 10)
+                yaw_moto_current = &yaw_moto_current_manual;
+            if(abs(pit_moto_current_manual - pit_moto_current_auto) > 10)
+                pit_moto_current = &pit_moto_current_manual;
+        }
     }
-    if(manual_pid_flag == 0){
-        if(abs(yaw_moto_current_manual - yaw_moto_current_auto) < 10)
-            yaw_moto_current = &yaw_moto_current_manual;
-        if(abs(pit_moto_current_manual - pit_moto_current_auto) < 10)
-            pit_moto_current = &pit_moto_current_manual;
+
+    if(gim.ctrl_mode==GIMBAL_CLOSE_LOOP_ZGYRO){
+        yaw_moto_current = &yaw_moto_current_manual;
+        pit_moto_current = &pit_moto_current_manual;
+        if(manual_pid_flag == 0){
+            if(abs(yaw_moto_current_manual - yaw_moto_current_auto) > 10)
+                yaw_moto_current = &yaw_moto_current_auto;
+            if(abs(pit_moto_current_manual - pit_moto_current_auto) > 10)
+                pit_moto_current = &pit_moto_current_auto;
+        }
+    }
+
+    if(gim.ctrl_mode==GIMBAL_INIT){
+        yaw_moto_current = &yaw_moto_current_manual;
+        pit_moto_current = &pit_moto_current_manual;
     }
 
     //发送电流到云台电机电调
