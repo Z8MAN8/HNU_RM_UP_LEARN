@@ -425,8 +425,10 @@ void Gimbal_Control_moto(void)
     pit_moto_current_auto = Motor_Angle_Calculate(&PitMotor_Auto, pit_angle_fdb, imu.gyro_x, pit_angle_ref);
 
     if(gim.ctrl_mode==GIMBAL_AUTO){
-        yaw_moto_current = &yaw_moto_current_auto;
-        pit_moto_current = &pit_moto_current_auto;
+        /*yaw_moto_current = &yaw_moto_current_auto;
+        pit_moto_current = &pit_moto_current_auto;*/
+        yaw_moto_current = 0;
+        pit_moto_current = 0;
         if(auto_pid_flag == 0){
             if(abs(yaw_moto_current_manual - yaw_moto_current_auto) > 10)
                 yaw_moto_current = &yaw_moto_current_manual;
