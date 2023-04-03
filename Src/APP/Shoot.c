@@ -96,13 +96,14 @@ void shoot_task(const void* argu){
             auto_rx_data.shootCommand=0;
             shoot_cmd=1;
             shoot_continue_time = HAL_GetTick();
-            if(rc.kb.bit.SHIFT)
+            //步兵1v1暂时关闭三连发
+            /*if(rc.kb.bit.SHIFT)
                 shoot_state=TRIBLE_SHOOT;
-            else
-                shoot_state=SINGLE_SHOOT;
+            else*/
+            shoot_state=SINGLE_SHOOT;
         }
         else if ( RC_CONTIN_TRIG     //遥控器连发
-                  || (rc.mouse.r && rc.kb.bit.SHIFT) ) {  //鼠标连发
+                  || /*(rc.mouse.r && rc.kb.bit.SHIFT) */rc.kb.bit.SHIFT) {  //鼠标连发（1v1）
             shoot_state=CONTINUOUS_SHOOT;
             trigger_moto_position_ref=moto_trigger.total_ecd;
         }
