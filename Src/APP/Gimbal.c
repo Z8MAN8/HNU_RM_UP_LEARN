@@ -350,10 +350,10 @@ void Gimbal_Auto_control(void){
                                          | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000;*/
             }
             else{     //相对角度控制
-                gimbal_yaw = (*(int32_t*)&rpy_rx_data.DATA[1] / 1000.0) + pit_angle_fdb;
+                gimbal_yaw = (*(int32_t*)&rpy_rx_data.DATA[1] / 1000.0) - yaw_angle_fdb;
                         /*((int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
                                         | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000) + pit_angle_fdb;*/
-                gimbal_pitch = (*(int32_t*)&rpy_rx_data.DATA[5] / 1000.0) + yaw_angle_fdb;
+                gimbal_pitch = (*(int32_t*)&rpy_rx_data.DATA[5] / 1000.0) - pit_angle_fdb;
                         /*((int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
                                           | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000) + yaw_angle_fdb;*/
             }
@@ -368,9 +368,10 @@ void Gimbal_Auto_control(void){
         {
             dt = DWT_GetDeltaT(&old_counter);
             old_counter = DWT->CYCCNT;
-
-            pit_angle_ref += dt* (gimbal_pitch-last_p)/task_dt /** 0.7f + last_p * 0.3f*/;
-            yaw_angle_ref = dt* (gimbal_yaw-last_y)/task_dt /** 0.7f + last_p * 0.3f*/ /*+ manual_offset*/;
+            pit_angle_ref = gimbal_pitch;
+            yaw_angle_ref = gimbal_yaw;
+//            pit_angle_ref += dt* (gimbal_pitch-last_p)/task_dt /** 0.7f + last_p * 0.3f*/;
+//            yaw_angle_ref += dt* (gimbal_yaw-last_y)/task_dt /** 0.7f + last_p * 0.3f*/ /*+ manual_offset*/;
         }
         //遥控器微调
 //    gimbal_yaw_control();
@@ -427,8 +428,8 @@ void Gimbal_Control_moto(void)
     if(gim.ctrl_mode==GIMBAL_AUTO){
         /*yaw_moto_current = &yaw_moto_current_auto;
         pit_moto_current = &pit_moto_current_auto;*/
-        yaw_moto_current = 0;
-        pit_moto_current = 0;
+        /*yaw_moto_current = 0;
+        pit_moto_current = 0;*/
         if(auto_pid_flag == 0){
             if(abs(yaw_moto_current_manual - yaw_moto_current_auto) > 10)
                 yaw_moto_current = &yaw_moto_current_manual;
