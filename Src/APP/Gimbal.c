@@ -14,6 +14,8 @@
 
 #include "bsp_dwt.h"
 
+float dt = 0.0;//待初始化
+float task_dt = 1.0;//待初始化
 
 //float yaw_a_kp = 30;
 //float yaw_a_ki = 200;
@@ -304,10 +306,10 @@ void Gimbal_Control_pitch(void){
 void Gimbal_Auto_control(void){
 //    static float gimbal_yaw = 0;
 //    static float gimbal_pitch = 0;  //解析上位机发送的云台角度
-    static float dt = 0.0;//待初始化
-    static float task_dt = 1.0;//待初始化
+    /*static float dt = 0.0;//待初始化
+    static float task_dt = 1.0;//待初始化*/
     static uint32_t old_counter=0;
-
+    static uint32_t old_counter_task=0;
     float target_distance = 0; //与识别目标的距离
 //    static bool_t com_protect = 1; //为1时一帧数据处理完毕
 
@@ -339,8 +341,6 @@ void Gimbal_Auto_control(void){
 //	HAL_GPIO_TogglePin(GPIOG,GPIO_PIN_2);
 //TODO:
         if(recv_flag) {  //欧拉角rpy方式控制
-            last_p = gimbal_pitch;//记录上一次的
-            last_y = gimbal_yaw;
             if (!rpy_rx_data.DATA[0]){     //绝对角度控制
                 gimbal_yaw = *(int32_t*)&rpy_rx_data.DATA[1] / 1000.0;
                         /*(int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
@@ -349,29 +349,29 @@ void Gimbal_Auto_control(void){
                         /*(int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
                                          | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000;*/
             }
-            else{     //相对角度控制
-                gimbal_yaw = (*(int32_t*)&rpy_rx_data.DATA[1] / 1000.0) - yaw_angle_fdb;
-                        /*((int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
-                                        | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000) + pit_angle_fdb;*/
-                gimbal_pitch = (*(int32_t*)&rpy_rx_data.DATA[5] / 1000.0) - pit_angle_fdb;
-                        /*((int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
-                                          | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000) + yaw_angle_fdb;*/
+            else {     //相对角度控制
+                gimbal_yaw = (*(int32_t *) &rpy_rx_data.DATA[1] / 1000.0)/* - yaw_angle_fdb*/;
+                /*((int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
+                                | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000) + pit_angle_fdb;*/
+                gimbal_pitch = (*(int32_t *) &rpy_rx_data.DATA[5] / 1000.0)/* - pit_angle_fdb*/;
+                /*((int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
+                                  | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000) + yaw_angle_fdb;*/
             }
             pit_angle_ref = gimbal_pitch /** 0.7f + last_p * 0.3f*/;
             yaw_angle_ref = gimbal_yaw /** 0.7f + last_p * 0.3f*/ /*+ manual_offset*/;
             target_distance = *(int32_t*)&rpy_rx_data.DATA[13] / 1000;  //获取目标距离
             recv_flag = 0;
-            task_dt = DWT_GetDeltaT(&old_counter);
+            /*预留task_dt ，DWT测上位机数据接收间隔时间,*/
+            task_dt = DWT_GetDeltaT(&old_counter_task);
             old_counter = DWT->CYCCNT;
+            old_counter_task = DWT->CYCCNT;
+            /*task_dt约为0.01*/
 
         } else
-        {
+        {   /*预留dt ，DWT测控制间隔时间*/
             dt = DWT_GetDeltaT(&old_counter);
             old_counter = DWT->CYCCNT;
-            pit_angle_ref = gimbal_pitch;
-            yaw_angle_ref = gimbal_yaw;
-//            pit_angle_ref += dt* (gimbal_pitch-last_p)/task_dt /** 0.7f + last_p * 0.3f*/;
-//            yaw_angle_ref += dt* (gimbal_yaw-last_y)/task_dt /** 0.7f + last_p * 0.3f*/ /*+ manual_offset*/;
+            /*dt约为0.001*/
         }
         //遥控器微调
 //    gimbal_yaw_control();

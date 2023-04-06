@@ -147,9 +147,9 @@ void Get_Communicate_data(uint8_t* data, uint16_t send_type){
         case CAN_GIM_STATE: {
             // 其实可以强制类型转换成 uint8_t 也不会丢数据，但是那就要在参数那里转换，比较难看，现在就传这一个也不挤所以先保留int传过去好了
             int *gim_state = (int *)&gim.ctrl_mode;
-            data[3] = *gim_state >> 24;
-            data[2] = *gim_state >> 16;
-            data[1] = *gim_state >> 8;
+            data[3] = 0;
+            data[2] = 0;
+            data[1] = 0;
             data[0] = *gim_state;
             // 未用到，留空
             data[7] = 0;
