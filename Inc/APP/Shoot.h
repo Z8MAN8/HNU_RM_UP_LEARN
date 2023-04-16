@@ -11,7 +11,11 @@
 #include "Gimbal.h"
 
 /*************************发射速度设置*******************************/
-#define SHOT_FRIC_WHEEL_SPEED    4840
+#ifdef RM1V1
+#define SHOT_FRIC_WHEEL_SPEED     5260 //17   /*8800*/
+#elif RM3V3
+#define SHOT_FRIC_WHEEL_SPEED     4840 //14.5
+#endif
 #define SHOT_SUCCESS_FRIC_WHEEL_SPEED  6800  //发射成功摩擦轮会减速
 #define SHOT_ABLE_FRIC_WHEEL_SPEED  6000
 #define SHOOT_PERIOD 2
@@ -70,6 +74,8 @@ float ShootAndDelay(float speedInNumsPerSec, uint32_t numsOfOneShot, uint32_t de
 extern uint8_t shooter_output; //裁判系统对SHOOT的供电情况
 extern uint8_t shooter_id1_17mm_cooling_limit; // 1号枪管17mm热量上限
 extern uint8_t shooter_id1_17mm_cooling_heat;  // 1号枪管17mm热量
+
+extern int cap_ok;
 
 /*extern PIDTypeDef pid_trigger
 extern PIDTypeDef pid_trigger_speed

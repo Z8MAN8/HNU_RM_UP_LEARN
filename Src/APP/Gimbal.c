@@ -251,10 +251,10 @@ void Gimbal_Loop_handle(){
                              | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000;*/
         }
         else{     //相对角度控制
-            gimbal_yaw = (*(int32_t*)&rpy_rx_data.DATA[1] / 1000.0) + pit_angle_fdb;
+            gimbal_yaw = (*(int32_t*)&rpy_rx_data.DATA[1] / 1000.0)/* + pit_angle_fdb*/;
             /*((int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
                             | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000) + pit_angle_fdb;*/
-            gimbal_pitch = (*(int32_t*)&rpy_rx_data.DATA[5] / 1000.0) + yaw_angle_fdb;
+            gimbal_pitch = (*(int32_t*)&rpy_rx_data.DATA[5] / 1000.0)/* + yaw_angle_fdb*/;
             /*((int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
                               | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000) + yaw_angle_fdb;*/
         }
@@ -265,6 +265,9 @@ void Gimbal_Loop_handle(){
     /*普通模式中与自瞄模式的相互切换*/
     if(rc.sw2==RC_MI||rc.mouse.r==1){
         gim.ctrl_mode = GIMBAL_AUTO;
+        gim.yaw_offset_angle = imu.angle_x;
+        yaw_angle_ref = 0;
+        yaw_angle_fdb = 0;
     }
         /*切换完毕，进入普通模式的控制*/
     else{
@@ -318,7 +321,9 @@ void Gimbal_Auto_control(void){
     /*自瞄模式中与普通模式的相互切换*/
     if(rc.sw2==RC_UP && rc.mouse.r!=1){
         gim.ctrl_mode=GIMBAL_CLOSE_LOOP_ZGYRO;
-
+        gim.yaw_offset_angle = imu.angle_x;
+        yaw_angle_ref = 0;
+        yaw_angle_fdb = 0;
     }
     /*切换完毕，进入自瞄模式的控制*/
     else{
@@ -349,13 +354,20 @@ void Gimbal_Auto_control(void){
                         /*(int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
                                          | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000;*/
             }
-            else {     //相对角度控制
+            else {     //相对角度控制(目前自瞄的控制方式）
                 gimbal_yaw = (*(int32_t *) &rpy_rx_data.DATA[1] / 1000.0)/* - yaw_angle_fdb*/;
                 /*((int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
                                 | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000) + pit_angle_fdb;*/
                 gimbal_pitch = (*(int32_t *) &rpy_rx_data.DATA[5] / 1000.0)/* - pit_angle_fdb*/;
                 /*((int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
                                   | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000) + yaw_angle_fdb;*/
+                /*if((360-abs(gimbal_yaw)) < abs(gimbal_yaw)){
+                    if(gimbal_yaw > 0){
+                        gimbal_yaw = -(360-abs(gimbal_yaw));
+                    }
+                    else
+                        gimbal_yaw = (360-abs(gimbal_yaw));
+                }*/
             }
             pit_angle_ref = gimbal_pitch /** 0.7f + last_p * 0.3f*/;
             yaw_angle_ref = gimbal_yaw /** 0.7f + last_p * 0.3f*/ /*+ manual_offset*/;

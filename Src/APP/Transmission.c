@@ -9,6 +9,7 @@
 #include "Gimbal.h"
 #include "usart.h"
 #include "bsp_can.h"
+#include "shoot.h"
 
 BCPFrameTypeDef upper_rx_data;
 BCPFrameTypeDef upper_tx_all_data[FRAME_NUM];
@@ -34,6 +35,7 @@ SendFrameTypeDef auto_tx_data =
 static uint8_t cm_data[8] = {0};
 static uint8_t gim_state_buffer[8] = {0};
 extern volatile float yaw_angle_ref_v;
+uint8_t shoot_ok = 0; //摩擦轮转动正常标志位(根据实际转速得出）
 
 extern uint8_t USB_SEND_OK;
 
@@ -68,12 +70,17 @@ void transmission_task(void const * argument)
 
     while (1)
     {
+        if((moto_shoot[0].speed_rpm > 3000) || (moto_shoot[1].speed_rpm > 3000)){\
+        shoot_ok = 1;
+        }
         /*给下板发送数据*/
         Get_Communicate_data(cm_data, CAN_RPY_TX);
         Send_Communicate_data(&COM_CAN, cm_data, CAN_RPY_TX);
 
         Get_Communicate_data(gim_state_buffer, CAN_GIM_STATE);
         Send_Communicate_data(&COM_CAN, gim_state_buffer, CAN_GIM_STATE);
+
+        shoot_ok = 0; //重置摩擦轮转动正常标志位
 
         auto_tx_data.pitchAngleGet=pit_angle_fdb;
         auto_tx_data.yawAngleGet=yaw_angle_fdb;
@@ -148,8 +155,8 @@ void Get_Communicate_data(uint8_t* data, uint16_t send_type){
             // 其实可以强制类型转换成 uint8_t 也不会丢数据，但是那就要在参数那里转换，比较难看，现在就传这一个也不挤所以先保留int传过去好了
             int *gim_state = (int *)&gim.ctrl_mode;
             data[3] = 0;
-            data[2] = 0;
-            data[1] = 0;
+            data[2] = cap_ok;
+            data[1] = shoot_ok; //摩擦轮转动正常标志位;
             data[0] = *gim_state;
             // 未用到，留空
             data[7] = 0;
