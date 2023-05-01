@@ -11,6 +11,7 @@
 #include "ramp.h"
 #include "kalman.h"
 #include "keyboard.h"
+#include "sys.h"
 
 #include "bsp_dwt.h"
 
@@ -30,6 +31,7 @@ float pitch_a_kp = 90;
 float pitch_a_ki = 180;
 float pitch_a_kd = 1;
 
+float Ballistic_compensation_mannul;  //对自瞄数据进行手动弹道补偿
 static float gimbal_yaw = 0;
 static float gimbal_pitch = 0;  //解析上位机发送的云台角度
 static float yaw_speed = 0;
@@ -47,7 +49,11 @@ GimbalYawTypeDef gim;
 
 /*云台归中值*/
 int32_t   pit_center_offset = 3616;
+#ifdef SIDEWAYS
+int32_t   yaw_center_offset = 5426;
+#else
 int32_t   yaw_center_offset = 4600;
+#endif
 
 /*储存鼠标坐标数据*/
 First_Order_Filter_t mouse_y_lpf,mouse_x_lpf;
@@ -254,7 +260,8 @@ void Gimbal_Loop_handle(){
             gimbal_yaw = (*(int32_t*)&rpy_rx_data.DATA[1] / 1000.0)/* + pit_angle_fdb*/;
             /*((int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
                             | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000) + pit_angle_fdb;*/
-            gimbal_pitch = (*(int32_t*)&rpy_rx_data.DATA[5] / 1000.0)/* + yaw_angle_fdb*/;
+            gimbal_pitch = (*(int32_t*)&rpy_rx_data.DATA[5] / 1000.0)
+                           - Ballistic_compensation_mannul * KB_RATIO * GIMBAL_PC_MOVE_RATIO_PIT * MANUAL_OFFSET_PIT/* + yaw_angle_fdb*/;
             /*((int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
                               | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000) + yaw_angle_fdb;*/
         }
@@ -324,6 +331,7 @@ void Gimbal_Auto_control(void){
         gim.yaw_offset_angle = imu.angle_x;
         yaw_angle_ref = 0;
         yaw_angle_fdb = 0;
+        Ballistic_compensation_mannul = 0;
     }
     /*切换完毕，进入自瞄模式的控制*/
     else{
@@ -332,6 +340,8 @@ void Gimbal_Auto_control(void){
             auto_pid_flag = 1;
             manual_pid_flag = 0;
         }
+
+        Ballistic_compensation_mannul += First_Order_Filter_Calculate(&mouse_y_lpf,rc.mouse.y)*0.05;
 
         //	float rate=0.3,a,b;
         static float last_p=0.0f,last_y=0.0f;
@@ -358,7 +368,8 @@ void Gimbal_Auto_control(void){
                 gimbal_yaw = (*(int32_t *) &rpy_rx_data.DATA[1] / 1000.0)/* - yaw_angle_fdb*/;
                 /*((int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
                                 | rpy_rx_data.DATA[2] << 8 | rpy_rx_data.DATA[1])/1000) + pit_angle_fdb;*/
-                gimbal_pitch = (*(int32_t *) &rpy_rx_data.DATA[5] / 1000.0)/* - pit_angle_fdb*/;
+                gimbal_pitch = (*(int32_t *) &rpy_rx_data.DATA[5] / 1000.0)
+                        - Ballistic_compensation_mannul * KB_RATIO * GIMBAL_PC_MOVE_RATIO_PIT/* - pit_angle_fdb*/;
                 /*((int32_t)(rpy_rx_data.DATA[8] << 24 | rpy_rx_data.DATA[7] << 16
                                   | rpy_rx_data.DATA[6] << 8 | rpy_rx_data.DATA[5])/1000) + yaw_angle_fdb;*/
                 /*if((360-abs(gimbal_yaw)) < abs(gimbal_yaw)){

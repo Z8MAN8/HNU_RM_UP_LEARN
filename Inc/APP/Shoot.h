@@ -21,7 +21,7 @@
 #define SHOOT_PERIOD 2
 /* 单发拨弹的编码器行程 */
 #define DEGREE_60_TO_ENCODER  49146
-#define DEGREE_45_TO_ENCODER -36864/3
+#define DEGREE_45_TO_ENCODER /*-36864*/ -24500
 
 #define TRIGGER_MOTOR_REDUCTION_RATIO 36
 #define BULLETS_PER_ROUND 8
@@ -72,10 +72,11 @@ float ShootAndDelay(float speedInNumsPerSec, uint32_t numsOfOneShot, uint32_t de
 
 /* 裁判系统相关信息 */
 extern uint8_t shooter_output; //裁判系统对SHOOT的供电情况
-extern uint8_t shooter_id1_17mm_cooling_limit; // 1号枪管17mm热量上限
-extern uint8_t shooter_id1_17mm_cooling_heat;  // 1号枪管17mm热量
+extern uint16_t shooter_id1_17mm_cooling_limit; // 1号枪管17mm热量上限
+extern uint16_t shooter_id1_17mm_cooling_heat;  // 1号枪管17mm热量
 
 extern int cap_ok;
+extern uint8_t shoot_ok;
 
 /*extern PIDTypeDef pid_trigger
 extern PIDTypeDef pid_trigger_speed

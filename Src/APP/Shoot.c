@@ -16,10 +16,12 @@ PIDTypeDef pid_trigger_speed = { 0 };
 PIDTypeDef pid_shoot_left = { 0 };
 PIDTypeDef pid_shoot_right = { 0 };
 
+float testtt = 8;
+
 /* 上次的遥控数据数据 */
 uint8_t   last_left_key;
 uint8_t   last_right_key;
-uint8_t   last_sw1;
+uint8_t   last_sw1 = 1;
 uint8_t   last_sw2;
 int16_t   last_wheel_value;
 
@@ -28,14 +30,15 @@ int cap_open_flag = 0;
 int cap_ok = 0;
 
 /* 射击相关参数 */
-enum ShootState shoot_state;
+enum ShootState shoot_state = DONT_SHOOT;
 uint8_t   shoot_cmd = 0;
 uint32_t  shoot_continue_time;
-uint16_t  fric_wheel_speed = SHOT_FRIC_WHEEL_SPEED;
+uint16_t  fric_wheel_speed;
 bool_t fric_wheel_run = 0;
 uint8_t shooter_output;
-uint8_t shooter_id1_17mm_cooling_limit;
-uint8_t shooter_id1_17mm_cooling_heat;
+uint16_t shooter_id1_17mm_cooling_limit;
+uint16_t shooter_id1_17mm_cooling_heat;
+uint8_t shoot_ok = 0; //摩擦轮转动正常标志位(根据实际转速得出）
 
 /* 拨弹电机期望位置(单位是编码器数值encoder) */
 int32_t trigger_moto_position_ref;
@@ -105,7 +108,8 @@ void shoot_task(const void* argu){
             shoot_state=SINGLE_SHOOT;
         }
         else if ( RC_CONTIN_TRIG     //遥控器连发
-                  || /*(rc.mouse.r && rc.kb.bit.SHIFT) */rc.kb.bit.SHIFT) {  //鼠标连发（1v1）
+                  || /*(rc.mouse.r && rc.kb.bit.SHIFT) */rc.kb.bit.V
+                  /*|| (recv_flag && rc.mouse.r)*/) {  //自瞄识别到以后就连发
             shoot_state=CONTINUOUS_SHOOT;
             trigger_moto_position_ref=moto_trigger.total_ecd;
         }
@@ -113,7 +117,16 @@ void shoot_task(const void* argu){
             shoot_state=DONT_SHOOT;
         }
 
-        if (fric_wheel_run == 0){
+        if((abs(moto_shoot[0].speed_rpm) > 4000) || (abs(moto_shoot[1].speed_rpm) > 4000)){
+            shoot_ok = 1;
+        }
+        else{
+            shoot_ok =0;
+        }
+
+        if (fric_wheel_run == 0
+        || shooter_output == 0   //裁判系统对SHOOT没有供电时，不拨弹
+        || shoot_ok != 1) {  //裁判系统恢复供电后，摩擦轮恢复转动之前，拨弹电机不转
             shoot_state=DONT_SHOOT;
         }
 
@@ -206,8 +219,7 @@ float ShootAndDelay(float speedInNumsPerSec, uint32_t numsOfOneShot, uint32_t de
 /* 子弹的单发和连发处理 */
 void Shoot_Custom_control(void){
     if (fric_wheel_run
-    &&shooter_output==1  //裁判系统对SHOOT没有供电时，不拨弹
-    &&(shooter_id1_17mm_cooling_heat < shooter_id1_17mm_cooling_limit)) { //超热量不拨弹
+        &&(shooter_id1_17mm_cooling_heat < (shooter_id1_17mm_cooling_limit-30))) { //超热量不拨弹
 
         //HAL_GPIO_WritePin(GPIOE,GPIO_PIN_12,(GPIO_PinState)shoot_cmd);
         switch(shoot_state){
@@ -230,7 +242,11 @@ void Shoot_Custom_control(void){
                 trigger_moto_speed_ref = PID_Calculate(&pid_trigger, moto_trigger.total_ecd, trigger_moto_position_ref);
                 goto emmm;
             case CONTINUOUS_SHOOT:
-                speedInNumsPerSec=4.0f;
+#ifdef RM1V1
+                speedInNumsPerSec=14.0f /*testtt*/;
+#elif RM3V3
+                speedInNumsPerSec=10.0f;
+#endif
                 numsOfOneShot=4;
                 delayTimeInMs=10;
                 break;
@@ -247,9 +263,22 @@ void Shoot_Custom_control(void){
     else{
         trigger_moto_current = 0;
     }
+
+    /*if(shoot_state == DONT_SHOOT && abs(moto_shoot[0].speed_rpm)<1000){  //发射机构断电，不能反馈最后的报文
+        moto_shoot[0].speed_rpm = 0;
+        moto_shoot[1].speed_rpm = 0;
+    }*/
     /* 闭环计算摩擦轮电机电流 */
     shoot_moto_current_left = PID_Calculate(&pid_shoot_left, moto_shoot[0].speed_rpm, -fric_wheel_speed);
     shoot_moto_current_right = PID_Calculate(&pid_shoot_right, moto_shoot[1].speed_rpm, fric_wheel_speed);
+
+    /* TODO：2023联盟赛
+     * 临时解决办法，不是最优解，
+     * 问题现象为：shoot_state为DONT PID期望（fric_wheel_speed）为零，Iout一直不清零*/
+    /*if(shoot_state == DONT_SHOOT){
+        shoot_moto_current_left = 0;
+        shoot_moto_current_right = 0;
+    }*/
 
     /* 发送拨弹电机、摩擦轮电机电流 */
     ShootMoto_Send_current(shoot_moto_current_left, shoot_moto_current_right, trigger_moto_current);
@@ -259,7 +288,7 @@ void Shoot_Custom_control(void){
 void FrictionWheel_Turn_on_off(void){
     if (fric_wheel_run){
         //打开摩擦轮
-        fric_wheel_speed=SHOT_FRIC_WHEEL_SPEED;
+        fric_wheel_speed = SHOT_FRIC_WHEEL_SPEED;
         //打开激光、充能装置
         HAL_GPIO_WritePin(UVLED_GPIO_Port,UVLED_Pin,GPIO_PIN_SET);
         //TODO:激光，车上没接，先注释了

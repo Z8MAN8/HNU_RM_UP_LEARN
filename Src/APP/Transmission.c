@@ -35,7 +35,6 @@ SendFrameTypeDef auto_tx_data =
 static uint8_t cm_data[8] = {0};
 static uint8_t gim_state_buffer[8] = {0};
 extern volatile float yaw_angle_ref_v;
-uint8_t shoot_ok = 0; //摩擦轮转动正常标志位(根据实际转速得出）
 
 extern uint8_t USB_SEND_OK;
 
@@ -70,17 +69,13 @@ void transmission_task(void const * argument)
 
     while (1)
     {
-        if((moto_shoot[0].speed_rpm > 3000) || (moto_shoot[1].speed_rpm > 3000)){\
-        shoot_ok = 1;
-        }
+
         /*给下板发送数据*/
         Get_Communicate_data(cm_data, CAN_RPY_TX);
         Send_Communicate_data(&COM_CAN, cm_data, CAN_RPY_TX);
 
         Get_Communicate_data(gim_state_buffer, CAN_GIM_STATE);
         Send_Communicate_data(&COM_CAN, gim_state_buffer, CAN_GIM_STATE);
-
-        shoot_ok = 0; //重置摩擦轮转动正常标志位
 
         auto_tx_data.pitchAngleGet=pit_angle_fdb;
         auto_tx_data.yawAngleGet=yaw_angle_fdb;

@@ -33,9 +33,19 @@
 
 
 /*************************比赛模式设置*******************************/
-#define RM1V1
-//#define RM3V3
+//#define RM1V1 1
+#define RM3V3 3
 
+/* 选择底盘和云台的配合模式 */
+#define SIDEWAYS          //侧身模式
+
+#ifdef SIDEWAYS
+#define SIDE_DEGREE -36.f //侧身角度
+#else
+#define SIDE_DEGREE 0.f //侧身角度
+#endif
+
+#define MANUAL_OFFSET_PIT 0.4
 /*************************课程模块设置*******************************/
 ///* 可用的课程模块选项有 */
 //enum
@@ -78,9 +88,9 @@
 #define GIMBAL_RC_MOVE_RATIO_YAW 0.5f
 /* 鼠标键盘模式下的云台速度限制 */
 /* 云台pitch轴速度 */
-#define GIMBAL_PC_MOVE_RATIO_PIT 1.1f
+#define GIMBAL_PC_MOVE_RATIO_PIT 0.3f
 /* 云台yaw轴速度 */
-#define GIMBAL_PC_MOVE_RATIO_YAW 1.0f
+#define GIMBAL_PC_MOVE_RATIO_YAW 0.5f
 
 
 

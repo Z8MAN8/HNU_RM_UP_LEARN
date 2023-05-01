@@ -91,8 +91,8 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
                 break;
             case 0x134 :
                 shooter_output = rx_data[0];
-                shooter_id1_17mm_cooling_limit = rx_data[1];
-                shooter_id1_17mm_cooling_heat = rx_data[2];
+                shooter_id1_17mm_cooling_limit = (uint16_t)(rx_data[1]<<8 | rx_data[2]);
+                shooter_id1_17mm_cooling_heat  = (uint16_t)(rx_data[3]<<8 | rx_data[4]);
 
                 break;
             case CAN_3508_M3_ID:
