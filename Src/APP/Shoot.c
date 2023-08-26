@@ -224,14 +224,14 @@ void Shoot_Custom_control(void){
         //HAL_GPIO_WritePin(GPIOE,GPIO_PIN_12,(GPIO_PinState)shoot_cmd);
         switch(shoot_state){
             case SINGLE_SHOOT:
-                if(shoot_cmd){
+                if(shoot_cmd){   /*发射期间，摩擦轮常动，*/
                     /* 如果是单发命令，拨轮旋转45度 */
-                    trigger_moto_position_ref = moto_trigger.total_ecd + DEGREE_45_TO_ENCODER;
+                    trigger_moto_position_ref = moto_trigger.total_ecd + DEGREE_45_TO_ENCODER;//编码器的角度变化数值由2006的特性决定，具体可以上网查。
                     shoot_cmd=0;
                 }
-                /* 闭环计算拨弹电机期望转速 */
-                trigger_moto_speed_ref = PID_Calculate(&pid_trigger, moto_trigger.total_ecd, trigger_moto_position_ref);
-                goto emmm;
+                /* 闭环计算拨弹电机期望转速（串级pid） */
+                trigger_moto_speed_ref = PID_Calculate(&pid_trigger, moto_trigger.total_ecd, trigger_moto_position_ref);//第一次进pid编码器数值变转速
+                goto emmm;//第二次进pid转速变电流
             case TRIBLE_SHOOT:
                 if(shoot_cmd){
                     /* 如果是三发命令，拨轮旋转3*45度 */
