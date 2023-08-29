@@ -68,11 +68,14 @@ void GlobalErr_Detector_init(void)
   * @param     err_id: module id
   * @retval    None
   * @usage     used in CAN/usart.. rx interrupt callback
+  *
+  * 理解：用于记录检测模块返回时间以判断是否离线。若启动，则记录当前系统时钟
   */
 void Err_Detector_hook(int err_id)
 {
+    //想法：初始化中所有错误检测都已经使能，条件语句可以去掉吧？？？
     if (glb_err.err_list[err_id].enable)
-        glb_err.err_list[err_id].last_time = HAL_GetTick();
+        glb_err.err_list[err_id].last_time = HAL_GetTick();//记录此时时间
 }
 
 /**
@@ -83,7 +86,7 @@ void Err_Detector_hook(int err_id)
   */
 void detect_task(const void* argu)
 {
-    GlobalErr_Detector_init();
+    GlobalErr_Detector_init();//检测相关变量初始化：云台偏航角、俯仰角、电机
     osDelay(100);
 
     //beep_ctrl = BEEP_OFF;
@@ -92,11 +95,11 @@ void detect_task(const void* argu)
     {
         int max_priority = 0;
         int err_cnt      = 0;
-
+        //对11个模块进行异常检测
         for (int id = 0; id < ERROR_LIST_LENGTH; id++)
         {
-            glb_err.err_list[id].delta_time = HAL_GetTick() - glb_err.err_list[id].last_time;
-            if (glb_err.err_list[id].enable && (glb_err.err_list[id].delta_time > glb_err.err_list[id].set_timeout))
+            glb_err.err_list[id].delta_time = HAL_GetTick() - glb_err.err_list[id].last_time;//检测相隔时间
+            if (glb_err.err_list[id].enable && (glb_err.err_list[id].delta_time > glb_err.err_list[id].set_timeout))//检测超时
             {
                 glb_err.err_list[id].err_exist = 1; //this module is offline
                 err_cnt++;
@@ -113,7 +116,10 @@ void detect_task(const void* argu)
             }
         }
 
+        //问题：err_cnt=0应放到任务的最后，不然无法检测错误
+        //已解决，若要开启异常检测，应放到任务最后再复位
         err_cnt=0;
+        //所有模块都没有错误
         if (!err_cnt) //all scan no error, should clear err pointer!!!
             glb_err.err_now = NULL;
 

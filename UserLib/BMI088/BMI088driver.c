@@ -172,7 +172,7 @@ void Calibrate_MPU_Offset(ImuDataTypeDef *bmi088)
             gNormTemp = sqrtf(bmi088->accel[0] * bmi088->accel[0] +
                               bmi088->accel[1] * bmi088->accel[1] +
                               bmi088->accel[2] * bmi088->accel[2]);
-            bmi088->g_norm += gNormTemp;
+            bmi088->g_norm += gNormTemp;//陀螺仪初始化时，x、y、z轴加速度应为0
 
             BMI088_gyro_read_muli_reg(BMI088_GYRO_CHIP_ID, buf, 8);
             if (buf[0] == BMI088_GYRO_CHIP_ID_VALUE)
@@ -189,7 +189,7 @@ void Calibrate_MPU_Offset(ImuDataTypeDef *bmi088)
             }
 
             // 记录数据极差
-            if (i == 0)
+            if (i == 0)//寻找5000组数据的最大值、最小值，
             {
                 gNormMax = gNormTemp;
                 gNormMin = gNormTemp;

@@ -64,27 +64,38 @@ void transmission_task(void const * argument)
     int32_t imu_data = 0;
     uint32_t *gimbal_imu = (uint32_t *)&imu_data;
 
-    __HAL_UART_ENABLE_IT(&huart1,UART_IT_RXNE);
+    //gimbal_rpy、gimbal_imu分别指向rpy_data、imu_data数据帧的内存地址
+
+    __HAL_UART_ENABLE_IT(&huart1,UART_IT_RXNE);//打开uart1中断
     uint32_t transmission_wake_time = osKernelSysTick();
 
     while (1)
     {
 
         /*给下板发送数据*/
-        Get_Communicate_data(cm_data, CAN_RPY_TX);
-        Send_Communicate_data(&COM_CAN, cm_data, CAN_RPY_TX);
+        //发送gimbal任务计算得到的yaw_relative_angle，云台相对于中心位置的角度，
+        //问题：yaw_angle_ref_v在全局只出现过一次？？？没有赋值
+        //已解决：yaw_angle_ref_v没有用到
+        Get_Communicate_data(cm_data, CAN_RPY_TX);//给cm_data赋值
+        Send_Communicate_data(&COM_CAN, cm_data, CAN_RPY_TX);//发送cm_data数据
 
+        //传输：云台的模式、是否打开弹仓，摩擦轮转动是否正常
         Get_Communicate_data(gim_state_buffer, CAN_GIM_STATE);
         Send_Communicate_data(&COM_CAN, gim_state_buffer, CAN_GIM_STATE);
 
         auto_tx_data.pitchAngleGet=pit_angle_fdb;
         auto_tx_data.yawAngleGet=yaw_angle_fdb;
         auto_tx_data.gimbal_mode=gim.ctrl_mode;
+        //问题：记录但未使用
         testdata[0]=-AHRS.Pitch;
         testdata[1]=-AHRS.Roll;
         testdata[2]=-AHRS.Yaw;
 
         /* USB发送角度帧 */
+        //gimbal_rpy、gimbal_imu分别指向rpy_data、imu_data数据帧的内存地址
+        //发送三个数据，一个数据用四个字节存储
+        //问题：在gimbal任务中，一般gim.yaw_offset_angle = imu.angle_x; 所以向上位机发送的是什么数据
+        //已解决
         rpy_tx_buffer[0] = 0;
         rpy_data = (imu.angle_x- gim.yaw_offset_angle) * 1000;
         rpy_tx_buffer[1] = *gimbal_rpy;
@@ -103,6 +114,7 @@ void transmission_task(void const * argument)
         rpy_tx_buffer[12] = *gimbal_rpy >> 24;
 
         // 这里是发送数据，云台接收数据在 `usbd_cdc_if.c` 中的**回调函数** CDC_Receive_FS() 里进行处理。
+        //构建一个通信协议帧
         Add_Frame_To_Upper(GIMBAL, rpy_tx_buffer);
         CDC_Transmit_FS((uint8_t*)&rpy_tx_data, sizeof(rpy_tx_data));
 
@@ -120,6 +132,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         CDC_Transmit_FS((uint8_t*)&auto_tx_data,sizeof(auto_tx_data));
         int i=(auto_tx_data.index%25)*2;
         //记录拍摄这一帧时云台的位姿
+        //问题：记录后在哪里使用
         angle_history[i]=yaw_angle_fdb;
         angle_history[i+1]=pit_angle_fdb;
         auto_tx_data.index++;
@@ -168,6 +181,7 @@ void Send_Communicate_data(CAN_HandleTypeDef *_hcan, uint8_t *data, uint16_t sen
     static uint8_t CAN_Send_Data[8];
     uint32_t send_mail_box;
 
+//问题：这里用扩展帧，下层读取的时候用的是标准帧
     TX_MSG.StdId = CAN_UP_TX_INFO;
     TX_MSG.IDE = CAN_ID_EXT;            /* 上下板通讯使用扩展帧 */
     TX_MSG.ExtId = send_type;

@@ -144,13 +144,14 @@ void USART3_IRQHandler(void)
     {
         __HAL_UART_CLEAR_PEFLAG(&huart3);
     }
+    //串口空闲中断的目的是为了通知处理器，在数据帧传输结束后，可以进行后续的处理。
     else if(USART3->SR & UART_FLAG_IDLE)
     {
         static uint16_t this_time_rx_len = 0;
 
         __HAL_UART_CLEAR_PEFLAG(&huart3);
 
-        if ((hdma_usart3_rx.Instance->CR & DMA_SxCR_CT) == RESET)
+        if ((hdma_usart3_rx.Instance->CR & DMA_SxCR_CT) == RESET)//双缓存区
         {
             /* Current memory buffer used is Memory 0 */
 
@@ -208,9 +209,8 @@ void USART3_IRQHandler(void)
 
             if(this_time_rx_len == DBUS_FRAME_SIZE)
             {
-                //处理遥控器数据
-                remote_data_handle(&rc, sbus_rx_buf[1]);
-                Err_Detector_hook(REMOTE_CTRL_OFFLINE);
+                remote_data_handle(&rc, sbus_rx_buf[1]);//处理遥控器数据
+                Err_Detector_hook(REMOTE_CTRL_OFFLINE);//检测遥控器是否离线
 //                Send_RC_Data(&hcan2, sbus_rx_buf[1]);
 //                Send_RC_Data(&hcan1, sbus_rx_buf[1]);
                 //HAL_GPIO_WritePin(GPIOH,GPIO_PIN_12,GPIO_PIN_SET);
@@ -228,8 +228,8 @@ void USART3_IRQHandler(void)
 static void remote_data_handle(RcTypeDef *rc, uint8_t *buff)
 {
     /* 下面是正常遥控器数据的处理 */
-    rc->ch1 = (buff[0] | buff[1] << 8) & 0x07FF;
-    rc->ch1 -= 1024;
+    rc->ch1 = (buff[0] | buff[1] << 8) & 0x07FF;// 保留11位数据
+    rc->ch1 -= 1024;//减去偏移量
     rc->ch2 = (buff[1] >> 3 | buff[2] << 5) & 0x07FF;
     rc->ch2 -= 1024;
     rc->ch3 = (buff[2] >> 6 | buff[3] << 2 | buff[4] << 10) & 0x07FF;
@@ -257,7 +257,7 @@ static void remote_data_handle(RcTypeDef *rc, uint8_t *buff)
       (abs(rc->ch3) > 660) || \
       (abs(rc->ch4) > 660))
     {
-        memset(rc, 0, sizeof(RcTypeDef));
+        memset(rc, 0, sizeof(RcTypeDef));//接收结构体数据全部清0
         return ;
     }
 
