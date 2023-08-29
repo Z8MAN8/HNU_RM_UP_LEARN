@@ -115,14 +115,14 @@ int main(void)
   MX_TIM8_Init();
   MX_TIM10_Init();
   /* USER CODE BEGIN 2 */
-  MX_USB_DEVICE_Init();
-  DWT_Init(168);
-  remote_control_init();
-  CAN_Device_Init();
-  set_pwm_group_param(1, 20000);
+  MX_USB_DEVICE_Init(); //USB虚拟串口初始化 具体使用（如波特率设置等）未知
+  DWT_Init(168);//DWT外设初始化 cpu主时钟频率：168MHz
+  remote_control_init();//
+  CAN_Device_Init();//can1、can2过滤器配置、启动
+  set_pwm_group_param(1, 20000);//设置定时器8计数溢出值
 //  read_cali_data();
-  delay_init();
-  BMI088_init(&hspi1);
+  delay_init();//延时函数初始化
+  BMI088_init(&hspi1);//陀螺仪初始化并校准
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in freertos.c) */

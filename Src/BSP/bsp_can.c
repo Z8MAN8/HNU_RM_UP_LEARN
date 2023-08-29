@@ -89,7 +89,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
                 //TODO:
 //                chassis_mode = rx_data[0];
                 break;
-            case 0x134 :
+            case 0x134 ://拨弹电机
                 shooter_output = rx_data[0];
                 shooter_id1_17mm_cooling_limit = (uint16_t)(rx_data[1]<<8 | rx_data[2]);
                 shooter_id1_17mm_cooling_heat  = (uint16_t)(rx_data[3]<<8 | rx_data[4]);
@@ -100,7 +100,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
                 moto_trigger.msg_cnt++;
                 moto_trigger.msg_cnt <= 10 ? Get_Moto_offset(&moto_trigger, rx_data) : Encoder_Data_handle(
                         &moto_trigger, rx_data);
-                Err_Detector_hook(TRIGGER_MOTO_OFFLINE);
+                Err_Detector_hook(TRIGGER_MOTO_OFFLINE);//错误检测
             }
                 break;
             default:
@@ -110,6 +110,8 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
     if(hcan==&CONTROL_CAN) {
         switch (rx_header.StdId) {
             case CAN_YAW_MOTOR_ID: {
+                //不理解为什么要获取50次偏移量？？？
+                //已解决：稳定后再运算
                 if (YawMotor_Manual.msg_cnt++ <= 50)
                     get_motor_offset(&YawMotor_Manual, rx_data);
                 else
@@ -212,6 +214,7 @@ void Write_CAN(CAN_HandleTypeDef can, uint32_t send_id, uint8_t send_data[]){
     tx_message.IDE = CAN_ID_STD;
     tx_message.RTR = CAN_RTR_DATA;
     tx_message.DLC = 0x08;
+    //问题：为什么不能直接用send_data发送,感觉不会出问题
     for(int i=0;i<8;i++)
         can_send_data[i] = send_data[i];
     HAL_CAN_AddTxMessage(&can, &tx_message, can_send_data, &send_mail_box);
@@ -366,6 +369,7 @@ void ShootMoto_Send_current(int16_t left_current, int16_t right_current, int16_t
     data[5] = pit_current;
     data[6] = 0;
     data[7] = 0;
+    //疑问：分别向can1、2发送数据？？？
     Write_CAN(CONTROL_CAN, CAN_CHASSIS_ID, data);
     Write_CAN(hcan2, CAN_CHASSIS_ID, data);
 }

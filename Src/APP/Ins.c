@@ -38,13 +38,17 @@ uint8_t target_temp = 40;
 void ins_task(void const * argument)
 {
     /* USER CODE BEGIN InsTask */
-    BMI088_Read(&BMI088);
+    BMI088_Read(&BMI088);//读取陀螺仪参数
 
     if (fabsf(sqrtf(BMI088.accel[0] * BMI088.accel[0] +
                     BMI088.accel[1] * BMI088.accel[1] +
                     BMI088.accel[2] * BMI088.accel[2]) -
-              BMI088.g_norm) < 1)
-        Quaternion_AHRS_InitIMU(BMI088.accel[0], BMI088.accel[1], BMI088.accel[2], BMI088.g_norm);
+              BMI088.g_norm) < 1)//误差在合理范围内时
+        Quaternion_AHRS_InitIMU(BMI088.accel[0], BMI088.accel[1], BMI088.accel[2], BMI088.g_norm);//初始化四元数姿态估计系统
+    //问题：误差>1时怎么处理
+
+    //猜想：如果采用官方例程，加上磁力计进行四元数姿态角估计，效果会不会更好
+
     IMU_param.scale[0] = 1;
     IMU_param.scale[1] = 1;
     IMU_param.scale[2] = 1;
@@ -56,18 +60,18 @@ void ins_task(void const * argument)
     IMU_QuaternionEKF_Init(10, 0.001, 1000000 * 10, 0.9996 * 0 + 1, 0);
     // imu heat init
     PID_Init(&TempCtrl, 1100, 10, 0, 210, 4, 0, 0, 0, 0, 0, 0, 0);
-    HAL_TIM_PWM_Start(&htim10, TIM_CHANNEL_1);
-    uint32_t ins_wake_time = osKernelSysTick();
+    HAL_TIM_PWM_Start(&htim10, TIM_CHANNEL_1);//开启TIM10-CH1进行陀螺仪温控
+    uint32_t ins_wake_time = osKernelSysTick();//记录任务开始滴答计数值
     /* Infinite loop */
     for(;;)
     {
         HAL_GPIO_WritePin(GPIOE, task1_Pin, GPIO_PIN_SET);
         static uint32_t count = 0;
         dt = DWT_GetDeltaT(&INS_DWT_Count);
-        t += dt;
+        t += dt;//计时
 
         // ins update
-        if ((count % 1) == 0)
+        if ((count % 1) == 0)//每次进入该任务都要更新姿态角
         {
             BMI088_Read(&BMI088);
             ins.accel[0] = BMI088.accel[0];
@@ -122,7 +126,7 @@ void ins_task(void const * argument)
         }
 
         // temperature control
-        if ((count % 2) == 0)
+        if ((count % 2) == 0)//陀螺仪温控
         {
             // 500hz
             IMU_Temperature_Ctrl();
@@ -139,7 +143,7 @@ void ins_task(void const * argument)
 
         count++;
         HAL_GPIO_WritePin(GPIOE, task1_Pin, GPIO_PIN_RESET);
-        vTaskDelayUntil(&ins_wake_time,1);
+        vTaskDelayUntil(&ins_wake_time,1);//等待一个时钟节拍的时间
     }
     /* USER CODE END InsTask */
 }
@@ -328,13 +332,13 @@ static void IMU_Param_Correction(ImuParamTypeDef *param, float gyro[3], float ac
 void IMU_Temperature_Ctrl(void)
 {
     static uint32_t value = 0;
-    value = PID_Calculate(&TempCtrl, BMI088.temperature, target_temp );
+    value = PID_Calculate(&TempCtrl, BMI088.temperature, target_temp );//陀螺仪目标温度值：40℃
     TIM_Set_PWM(&htim10, TIM_CHANNEL_1, value);
 }
 
 void IMU_Get_data(ImuTypeDef *imu_data){
 
-    imu_data->acc_x = ins.accel[0];
+    imu_data->acc_x = ins.accel[0];//是否冲突
     imu_data->acc_y = ins.accel[1];
     imu_data->acc_z = ins.accel[2];
     imu_data->angle_x = ins.yaw_total_angle;

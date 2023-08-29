@@ -71,21 +71,23 @@ void shoot_task(const void* argu){
 
     while (1){
         /* 开关摩擦轮 */
-        if (rc.kb.bit.Q && rc.sw2 != RC_DN)
+        //遥控器控制
+        //摩擦轮和弹仓盖的状态判断
+        if (rc.kb.bit.Q && rc.sw2 != RC_DN)//按下Q键并且右侧拨杆数据不为2时，摩擦轮启动
             fric_wheel_run = 1;
 
-        if ((rc.kb.bit.Q && rc.kb.bit.SHIFT) || rc.sw2 == RC_DN)
+        if ((rc.kb.bit.Q && rc.kb.bit.SHIFT) || rc.sw2 == RC_DN)//按下Q键和shift键或右侧拨杆数据为2时，摩擦轮关闭
             fric_wheel_run = 0;
 
-        if (glb_err.err_list[REMOTE_CTRL_OFFLINE].err_exist)
+        if (glb_err.err_list[REMOTE_CTRL_OFFLINE].err_exist)//检测出错时，摩擦轮关闭
             fric_wheel_run = 0;
 
         //* 开关弹仓盖 */
-        if (rc.kb.bit.R||rc.sw1!=RC_DN){
+        if (rc.kb.bit.R||rc.sw1!=RC_DN){//按下R键或左侧拨杆数据不为2时，关闭弹仓盖
             cap_open_flag = -1;
             cap_ok = 0;
         }
-        if ((rc.kb.bit.R &&rc.kb.bit.SHIFT) || rc.sw1==RC_DN){
+        if ((rc.kb.bit.R &&rc.kb.bit.SHIFT) || rc.sw1==RC_DN){//按下R和shift键或左侧拨杆数据为2时，打开弹仓盖
             cap_open_flag = 1;
             cap_ok = 0;
         }
@@ -96,7 +98,7 @@ void shoot_task(const void* argu){
         /* bullet single or continue trigger command control  */
         if (( RC_SINGLE_TRIG ||rc.mouse.l         //遥控器或鼠标单发
               /*||auto_rx_data.shootCommand*/)     //上位机单发
-            && shoot_state == DONT_SHOOT){
+            && shoot_state == DONT_SHOOT){//初始化不射击
 
             auto_rx_data.shootCommand=0;
             shoot_cmd=1;
@@ -105,19 +107,22 @@ void shoot_task(const void* argu){
             /*if(rc.kb.bit.SHIFT)
                 shoot_state=TRIBLE_SHOOT;
             else*/
-            shoot_state=SINGLE_SHOOT;
+            shoot_state=SINGLE_SHOOT;//单发状态
         }
         else if ( RC_CONTIN_TRIG     //遥控器连发
                   || /*(rc.mouse.r && rc.kb.bit.SHIFT) */rc.kb.bit.V
                   /*|| (recv_flag && rc.mouse.r)*/) {  //自瞄识别到以后就连发
             shoot_state=CONTINUOUS_SHOOT;
-            trigger_moto_position_ref=moto_trigger.total_ecd;
+            //机械角度积分值
+            //疑问：将can总线接收的数据赋值给拨弹电机期望位置？？？
+            //三连发
+            trigger_moto_position_ref=moto_trigger.total_ecd;//拨弹电机期望位置
         }
         else if(HAL_GetTick()-shoot_continue_time>600){
-            shoot_state=DONT_SHOOT;
+            shoot_state=DONT_SHOOT;//时间过长不射击
         }
 
-        if((abs(moto_shoot[0].speed_rpm) > 4000) || (abs(moto_shoot[1].speed_rpm) > 4000)){
+        if((abs(moto_shoot[0].speed_rpm) > 4000) || (abs(moto_shoot[1].speed_rpm) > 4000)){//电机0和电机1的转速都大于4000时，射击完成
             shoot_ok = 1;
         }
         else{
@@ -144,12 +149,12 @@ void shoot_task(const void* argu){
         /* 开关摩擦轮实现函数 */
         FrictionWheel_Turn_on_off();
 
-        last_sw2 = rc.sw2;
-        last_left_key    = km.lk_sta;
+        last_sw2 = rc.sw2;//记录右侧摇杆状态
+        last_left_key    = km.lk_sta;//记录右侧摇杆状态
         last_right_key   = km.rk_sta;
-        last_wheel_value = rc.wheel;
+        last_wheel_value = rc.wheel;//记录遥控器左侧拨轮数据
         //GPIOE->BSRR=0x10000000;
-        osDelayUntil(&shoot_wake_time, SHOOT_PERIOD);
+        osDelayUntil(&shoot_wake_time, SHOOT_PERIOD);//等待一个时钟节拍的时间，2ms
     }
 }
 

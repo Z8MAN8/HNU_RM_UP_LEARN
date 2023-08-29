@@ -24,7 +24,7 @@ float task_dt = 1.0;//待初始化
 //float pitch_a_kp = 90;
 //float pitch_a_ki = 180;
 //float pitch_a_kd = 1;
-float yaw_a_kp = 30;
+float yaw_a_kp = 30;//云台偏航角、俯仰角参数设置
 float yaw_a_ki = 200;
 float yaw_a_kd = 0.001;
 float pitch_a_kp = 90;
@@ -92,16 +92,19 @@ float angle_history[50];
 
 void gimbal_task(void const * argument){
     /*初始化云台控制参数*/
-    Gimbal_Init_param();
+    Gimbal_Init_param();//分别初始化云台pitch、yaw角手动和自动的前馈控制、pid参数
     /*获取PreviousWakeTime*/
-    uint32_t Gimbal_Wake_time = osKernelSysTick();
-    DWT_Init(168);
+    uint32_t Gimbal_Wake_time = osKernelSysTick();//记录任务开始滴答计数值
+    DWT_Init(168);//再次初始化DWT外设？？？（main函数中已初始化）
 
     while (1){
         /*获取云台传感器及控制信息*/
         Gimbal_Get_information();
+        //问题：获取IMU数据时是否会产生任务冲突？？？
+        //猜想：ins任务中ins.accel数据是写入，本任务中是读取，可能需要一个互斥量或信号量的辅助
 
-        switch (gim.ctrl_mode){
+        //已解决：不冲突
+        switch (gim.ctrl_mode){//任务控制模式的判断与执行
 
             case (GIMBAL_INIT):{
                 Gimbal_Init_handle();
@@ -126,21 +129,25 @@ void gimbal_task(void const * argument){
 
 
         /*绝对延时，保证Gimbal_TASK固定周期运行*/
-        osDelayUntil(&Gimbal_Wake_time, GIMBAL_PERIOD);
+        osDelayUntil(&Gimbal_Wake_time, GIMBAL_PERIOD);//等待一个时钟节拍的时间，1ms
     }
 }
 
 
 void Gimbal_Get_information(void){
     /*获取IMU数据*/
-    IMU_Get_data(&imu);
+    IMU_Get_data(&imu);//imu相关数据赋值
 
     /*获取云台相对角度*/
+    //问题：计算公式、Gimbal_Get_relative_pos函数的具体计算
+    //yaw_center_offset为固定值？？？
+
+    //已解决！！！
     yaw_relative_angle = Gimbal_Get_relative_pos(YawMotor_Manual.RawAngle, yaw_center_offset) / 22.75f;
     pit_relative_angle = Gimbal_Get_relative_pos(PitMotor_Manual.RawAngle, pit_center_offset) / 22.75f;
 
     /*处理PC端键鼠控制*/
-    PC_Handle_kb();
+    PC_Handle_kb();//这个可以放到串口空闲中断吗？ keyboard在UserLib文件夹中
 
     /*获取云台当前模式，这里只能判断是RELAX还是INIT模式*/
     // 因为其他模式的判断在Gimbal_Init_handle()里面做
@@ -166,7 +173,7 @@ void Gimbal_Get_mode(void){
         gim.ctrl_mode = GIMBAL_INIT;
     }
 
-    gim.last_mode = gim.ctrl_mode;
+    gim.last_mode = gim.ctrl_mode;//猜想：赋值位置是否有问题，last_mode赋值是否应该在ctrl_mode之前。
 }
 
 
@@ -195,19 +202,21 @@ int16_t Gimbal_Get_relative_pos(int16_t raw_ecd, int16_t center_offset){
 
 /*云台初始化处理函数*/
 void Gimbal_Init_handle(void){
+
     pit_angle_fdb = pit_relative_angle;
     yaw_angle_fdb = yaw_relative_angle;
 
     /* gimbal pitch back center */
-    pit_angle_ref = pit_relative_angle * (1 - ramp_calc(&pit_ramp));
+    //云台俯仰回中
+    pit_angle_ref = pit_relative_angle * (1 - ramp_calc(&pit_ramp));//用到俯仰角
 
-    switch (gimbal_back_step){
+    switch (gimbal_back_step){//回中一步一步进行
         //在pitch轴没有回中完成之前不会进行yaw轴的回中
         case PIT_BACK_STEP:{
             /* keep yaw unmove this time */
             yaw_angle_ref = gim.ecd_offset_angle;
 
-            if(fabs(pit_angle_fdb) <= 2.0f)
+            if(fabs(pit_angle_fdb) <= 2.0f)//误差较小时？？？
                 gimbal_back_step = YAW_BACK_STEP;
         }break;
 
@@ -221,18 +230,20 @@ void Gimbal_Init_handle(void){
 
         case BACK_IS_OK:{
             /* yaw arrive and switch gimbal state */
-            if(rc.sw2 == RC_UP){
+            if(rc.sw2 == RC_UP){//云台归中后通过遥控器，选择云台模式：GIMBAL_CLOSE_LOOP_ZGYRO、GIMBAL_AUTO
                 gim.ctrl_mode = GIMBAL_CLOSE_LOOP_ZGYRO;
             }
             else if (rc.sw2 == RC_MI){
                 gim.ctrl_mode = GIMBAL_AUTO;
             }
 
-            gim.yaw_offset_angle = imu.angle_x;
+            gim.yaw_offset_angle = imu.angle_x;//偏航和俯仰角偏移量赋值
             gim.pit_offset_angle = imu.angle_y;
+            //猜想：归中时，陀螺仪偏航、俯仰角定义为0°
             pit_angle_ref = 0;
             yaw_angle_ref = 0;
             /*云台归中完成，将各参数设回正常值*/
+            //自动和手动最大值赋值
             YawMotor_Manual.PID_Velocity.MaxOut=YAW_V_PID_MAXOUT_M;
             YawMotor_Manual.FFC_Velocity.MaxOut=YAW_V_FFC_MAXOUT;
             PitMotor_Manual.PID_Velocity.MaxOut=PITCH_V_PID_MAXOUT_M;
@@ -248,6 +259,9 @@ void Gimbal_Init_handle(void){
 /*云台跟随编码器闭环控制处理函数*/
 void Gimbal_Loop_handle(){
     if(recv_flag) {  //欧拉角rpy方式控制
+
+        //绝对角度与相对角度控制区别：相对角度加入变量Ballistic_compensation_mannul
+
         if (!rpy_rx_data.DATA[0]){     //绝对角度控制
             gimbal_yaw = *(int32_t*)&rpy_rx_data.DATA[1] / 1000.0;
             /*(int32_t)(rpy_rx_data.DATA[4] << 24 | rpy_rx_data.DATA[3] << 16
@@ -453,6 +467,7 @@ void Gimbal_Control_moto(void)
         pit_moto_current = &pit_moto_current_auto;*/
         /*yaw_moto_current = 0;
         pit_moto_current = 0;*/
+        //问题：auto_pid_flag=1时没有做处理吗
         if(auto_pid_flag == 0){
             if(abs(yaw_moto_current_manual - yaw_moto_current_auto) > 10)
                 yaw_moto_current = &yaw_moto_current_manual;
@@ -524,6 +539,9 @@ void Gimbal_Init_param(void){
     c[0] = PITCH_V_FCC_C0_M;
     c[1] = PITCH_V_FCC_C1_M;
     c[2] = PITCH_V_FCC_C2_M;
+    //疑问：前馈控制预测云台俯仰角和偏航角的角度和速率？？？
+    //前馈具体内容不懂
+    //已解决：没有用到前馈
     Feedforward_Init(&PitMotor_Manual.FFC_Velocity, PITCH_V_FFC_MAXOUT_M, c, PITCH_V_FCC_LPF_M, 4, 4);
 //    LDOB_Init(&PitMotor_Manual.LDOB, 30000 * 0, 0.1, c, 0.00001, 4, 4);
     PID_Init(&PitMotor_Manual.PID_Angle, PITCH_A_PID_MAXOUT_M, PITCH_A_PID_MAXINTEGRAL_M, 0,
