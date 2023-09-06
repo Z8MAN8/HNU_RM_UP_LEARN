@@ -80,7 +80,7 @@ int16_t *pit_moto_current = &pit_moto_current_manual;
 
 bool_t recv_flag=false;   //虚拟串口接收标志位
 /*切换手动和自动模式相应PID参数的标志位*/
-static _Bool auto_pid_flag = 0;
+static _Bool auto_pid_flag = 0;      //默认情况下为自动瞄准
 static _Bool manual_pid_flag = 1;
 
 //存放25帧历史姿态数据
@@ -526,6 +526,8 @@ void Gimbal_Init_param(void){
     c[2] = PITCH_V_FCC_C2_M;
     Feedforward_Init(&PitMotor_Manual.FFC_Velocity, PITCH_V_FFC_MAXOUT_M, c, PITCH_V_FCC_LPF_M, 4, 4);
 //    LDOB_Init(&PitMotor_Manual.LDOB, 30000 * 0, 0.1, c, 0.00001, 4, 4);
+
+    /* 云台angle轴电机PID参数初始化 */
     PID_Init(&PitMotor_Manual.PID_Angle, PITCH_A_PID_MAXOUT_M, PITCH_A_PID_MAXINTEGRAL_M, 0,
              PITCH_A_PID_KP_M, PITCH_A_PID_KI_M, PITCH_A_PID_KD_M, 5, 2, PITCH_A_PID_LPF_M, PITCH_A_PID_D_LPF_M, 0,
              Integral_Limit | Trapezoid_Intergral | DerivativeFilter | Derivative_On_Measurement);
